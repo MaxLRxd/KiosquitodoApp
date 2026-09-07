@@ -1,0 +1,23 @@
+# Dependencias
+/KiosquitodoApp/node_modules/
+
+# Salidas de SvelteKit
+/KiosquitodoApp/build/
+/KiosquitodoApp/.svelte-kit/
+
+# Backend Rust
+/KiosquitodoApp/src-tauri/target/
+/KiosquitodoApp/src-tauri/gen/schemas/
+
+# Documentación interna (plan y notas de fases)
+/Documentación/
+
+# Configuración del agente de desarrollo
+/.opencode/
+
+# Sistema / editor
+.DS_Store
+Thumbs.db
+*.log
+.env
+.env.*

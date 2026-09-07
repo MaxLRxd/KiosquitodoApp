@@ -1,7 +1,6 @@
 # Sistema de Gestión de Kiosco — Documentación Técnica
 
 > **Proyecto:** Sistema de gestión local para kiosco  
-> **Estado:** En desarrollo — backend (Fase 1) y scaffold frontend completos  
 > **Última actualización:** Septiembre 2026
 
 ---
@@ -9,10 +8,11 @@
 ## Documentos
 
 | # | Documento | Contenido |
-|---|---|---|---|
-| 01 | [Requerimientos (MVP)](./01-requerimientos.md) | Requerimientos funcionales y no funcionales, casos de uso, restricciones de infraestructura y fuera del alcance |
-| 02 | [Stack y Arquitectura](./02-stack-y-arquitectura.md) | Justificación del stack tecnológico, análisis de alternativas descartadas, esquema de base de datos, estructura de carpetas |
-| 03 | [Integración de Hardware y MP](./03-integracion-hardware-mp.md) | Integración del escáner USB, discriminación escáner vs teclado, integración con la API de Mercado Pago, estrategias de conciliación, atajos de teclado e indicador de conectividad |
+|---|---|---|
+| SPEC | [Especificación](./SPEC.md) | Fuente de verdad única: reglas irrompibles R1–R12, stack fijo y detalle por dominio (§1 requerimientos, §2 stack y arquitectura, §3 hardware y Mercado Pago) |
+| IMPL | [Implementación](./IMPLEMENTATION.md) | Guía viva del código real: convenciones de implementación, avance por módulo y checklist de la Fase 2 |
+
+> **Convención SPEC / IMPLEMENTATION:** `SPEC.md` es la fuente de verdad del *qué* (reglas irrompibles + detalle en §1–§3). `IMPLEMENTATION.md` registra *cómo está implementado* en el código y se actualiza a medida que avanza la Fase 2.
 
 ---
 
@@ -48,7 +48,7 @@ Una aplicación de escritorio local (sin servidor, sin costos de hosting) que re
 |---|---|
 | Precisión monetaria | Todos los montos se modelan en **centavos** (`INTEGER`/`i64`) desde el día 1; conversión a decimales solo en la UI. |
 | Backend | `src-tauri/` con arquitectura en capas: `domain → ports → application → infrastructure`. |
-| Frontend | En la raíz del repo (estándar Tauri): SvelteKit + `adapter-static` en modo SPA (`ssr=false`). |
+| Frontend | En `KiosquitodoApp/` (subcarpeta del repo): SvelteKit + `adapter-static` en modo SPA (`ssr=false`). |
 | Credenciales | `keyring` v2 usa el Windows Credential Store por defecto (sin features extra). |
 | Stack resuelto | SvelteKit 2.x + Vite 8.x (Vite 5 quedó EOL) + Tailwind 3.4. |
 
@@ -77,7 +77,7 @@ Tauri v2
 │   ├── thiserror 2.x     (errores tipados)
 │   ├── keyring 2.x       (Access Token en Windows Credential Store)
 │   └── flexi_logger 0.29 (logs rotativos)
-└── Frontend (raíz): Svelte 5 + SvelteKit 2 + Tailwind CSS 3.4 + Vite 8
+└── Frontend (KiosquitodoApp/): Svelte 5 + SvelteKit 2 + Tailwind CSS 3.4 + Vite 8
 ```
 
 ---
@@ -96,7 +96,7 @@ Cualquier escáner USB que opere en modo HID (emulación de teclado) es compatib
 
 Este proyecto se desarrolla con un flujo **spec-first con asistencia de IA**, distinto del enfoque tradicional (documento completo → equipo → implementación). El patrón es:
 
-1. **Especificación primero**: los documentos de `Documentación/` (y el README) son la **fuente de verdad**. Se definen compromisos y reglas antes de escribir código.
+1. **Especificación primero**: el **SPEC** (`SPEC.md`) en la raíz del repo es la **fuente de verdad**: se definen compromisos y reglas antes de escribir código. `IMPLEMENTATION.md` registra después cómo el código los cumple.
 2. **Decisión por decisión**: cada regla importante (ej. montos en centavos, `src-tauri/`, capas `domain → ports → application → infrastructure`) se discute, se aprueba explícitamente y se documenta antes de implementarla.
 3. **Fases incrementales**: el desarrollo avanza en fases pequeñas y verificables (Fase 1 backend, scaffold frontend, etc.). Cada fase termina con verificación real (`cargo check`, `npm run check`, build) antes de seguir.
 4. **La IA como par**: un agente implementa siguiendo la spec, el humano aprueba; cuando una decisión cambia, **la documentación se actualiza primero** y el código se ajusta después.

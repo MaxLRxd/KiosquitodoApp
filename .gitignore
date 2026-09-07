@@ -12,9 +12,6 @@
 # Documentación interna (plan y notas de fases)
 /Documentación/
 
-# Configuración del agente de desarrollo
-/.opencode/
-
 # Sistema / editor
 .DS_Store
 Thumbs.db

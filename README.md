@@ -3,18 +3,6 @@
 > **Proyecto:** Sistema de gestión local para kiosco  
 > **Última actualización:** Septiembre 2026
 
----
-
-## Documentos
-
-| # | Documento | Contenido |
-|---|---|---|
-| SPEC | [Especificación](./SPEC.md) | Fuente de verdad única: reglas irrompibles R1–R12, stack fijo y detalle por dominio (§1 requerimientos, §2 stack y arquitectura, §3 hardware y Mercado Pago) |
-| IMPL | [Implementación](./IMPLEMENTATION.md) | Guía viva del código real: convenciones de implementación, avance por módulo y checklist de la Fase 2 |
-
-> **Convención SPEC / IMPLEMENTATION:** `SPEC.md` es la fuente de verdad del *qué* (reglas irrompibles + detalle en §1–§3). `IMPLEMENTATION.md` registra *cómo está implementado* en el código y se actualiza a medida que avanza la Fase 2.
-
----
 
 ## Resumen ejecutivo
 

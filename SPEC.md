@@ -4,13 +4,6 @@
 
 El SPEC define **qué** se construye y **cómo debe comportarse** el sistema. Este archivo es la **fuente de verdad única**: consolida las reglas irrompibles que todo código debe cumplir y el detalle completo por dominio. Las decisiones aquí documentadas se aprueban explícitamente y **no se cambian sin actualizar este documento primero**.
 
-## Estructura del documento
-
-| Sección | Contenido |
-|---|---|
-| [§1 Requerimientos](#sistema-de-gestion-de-kiosco-requerimientos-mvp) | Requerimientos funcionales y no funcionales, casos de uso, restricciones de infraestructura, convenciones y fuera del alcance |
-| [§2 Stack y arquitectura](#sistema-de-gestion-de-kiosco-stack-tecnologico-y-arquitectura) | Decisión arquitectónica, stack completo, alternativas descartadas, esquema de base de datos, estructura del repo, IPC, backup/restore, logging, migraciones, testing |
-| [§3 Hardware y Mercado Pago](#sistema-de-gestion-de-kiosco-integracion-de-hardware) | Escáner HID (discriminación vs teclado), API de MP, sync, conciliación y estrategias, atajos de teclado, conectividad |
 
 ## Reglas irrompibles
 

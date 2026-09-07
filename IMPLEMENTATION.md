@@ -1,8 +1,5 @@
 # IMPLEMENTATION.md — Guía de implementación
 
-## Rol de este documento
-
-Complementa el **SPEC** (`SPEC.md`): mientras el SPEC define **qué** se construye (reglas irrompibles R1–R12 y detalle por dominio en §1–§3), este documento registra **cómo está implementado realmente**: estructura del código, decisiones tomadas en la implementación y avance por módulo. Es la guía viva que se actualiza al ritmo de la Fase 2.
 
 ## Cómo navegar el código
 

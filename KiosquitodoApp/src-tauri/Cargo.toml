@@ -1,0 +1,58 @@
+[package]
+name = "kiosco-app"
+version = "0.1.0"
+description = "Sistema de gestión de kiosco local: POS, inventario, conciliación Mercado Pago y cierre de caja."
+edition = "2021"
+rust-version = "1.77.2"
+
+# La librería aloja toda la lógica; el binario es solo un shim que llama run().
+[lib]
+name = "kiosco_app_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+# Genera el contexto embebido de Tauri a partir de tauri.conf.json (requiere build.rs).
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+## Núcleo de escritorio
+tauri = { version = "2", features = [] }
+
+## Plugins oficiales (se registran en la fase de configuración/sistema)
+tauri-plugin-autostart = "2"
+tauri-plugin-updater = "2"
+
+## Serialización
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+## Persistencia: SQLite embebida
+# "bundled" compila SQLite dentro del binario (sin DLL externa, sin servidor).
+rusqlite = { version = "0.32", features = ["bundled"] }
+
+## HTTP async para la API de Mercado Pago
+# default-features=false + rustls-tls: evita dependencias TLS nativas (schannel/OpenSSL), binario más liviano.
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "http2"] }
+# Runtime async para comandos Tauri, sync MP en background y timeouts.
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
+
+## Seguridad de credenciales
+# keyring v2 usa por defecto el Windows Credential Store (wincred) para el Access Token de MP.
+keyring = "2"
+
+## Logging
+log = "0.4"
+flexi_logger = "0.29"
+
+## Fechas y horas (timestamps locales de ventas, syncs y backups)
+chrono = "0.4"
+
+## Errores tipados
+thiserror = "2"
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

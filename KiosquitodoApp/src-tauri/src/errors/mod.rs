@@ -1,0 +1,1 @@
+//! `AppError`, alias `AppResult<T>` y conversiones `From` de errores externos.

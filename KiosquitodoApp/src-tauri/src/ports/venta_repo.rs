@@ -1,0 +1,1 @@
+//! Trait del repositorio de ventas, ítems y devoluciones.

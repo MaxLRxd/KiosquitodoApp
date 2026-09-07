@@ -1,0 +1,1 @@
+//! Casos de uso de inventario: CRUD, búsqueda, paginación y ajuste de stock.

@@ -1,0 +1,1 @@
+//! Cierre de caja: totales del día, margen bruto y delta de conciliación MP.

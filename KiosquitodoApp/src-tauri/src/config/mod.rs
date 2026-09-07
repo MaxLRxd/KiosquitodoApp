@@ -1,0 +1,1 @@
+//! Configuración de la app: rutas (data, backups, logs) y valores por defecto.

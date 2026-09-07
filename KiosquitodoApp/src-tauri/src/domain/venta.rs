@@ -1,0 +1,1 @@
+//! Agregado `Venta`: ítems, medios de pago (efectivo/MP/mixto), totales en centavos y devoluciones.

@@ -1,0 +1,1 @@
+//! Trait del cliente HTTP de la API de Mercado Pago.

@@ -1,0 +1,1 @@
+//! Cliente HTTP real de Mercado Pago vía reqwest.

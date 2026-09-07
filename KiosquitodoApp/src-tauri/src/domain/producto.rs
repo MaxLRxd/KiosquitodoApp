@@ -1,0 +1,1 @@
+//! Entidad `Producto` y `Categoria`: validación de barcode, precios en centavos y stock mínimo.

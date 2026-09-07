@@ -1,0 +1,1 @@
+//! Pago importado de Mercado Pago: elegibilidad (approved + accredited) y dedupe por `mp_id`.

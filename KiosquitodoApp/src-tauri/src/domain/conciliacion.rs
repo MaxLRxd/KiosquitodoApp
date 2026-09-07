@@ -1,0 +1,1 @@
+//! Algoritmo de matching (±$1 / ±10 min) y estados OK / MONTO DIFIERE / SIN COINCIDENCIA.

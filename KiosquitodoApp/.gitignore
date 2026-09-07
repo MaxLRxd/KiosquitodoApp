@@ -1,0 +1,17 @@
+# Dependencias
+/node_modules/
+
+# Salidas de SvelteKit
+/build/
+/.svelte-kit/
+
+# Backend Rust
+/src-tauri/target/
+/src-tauri/gen/schemas/
+
+# Sistema / editor
+.DS_Store
+Thumbs.db
+*.log
+.env
+.env.*

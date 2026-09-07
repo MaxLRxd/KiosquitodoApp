@@ -1,0 +1,1 @@
+//! Casos de uso de cierre: resumen diario, cierre de caja y exportación CSV.

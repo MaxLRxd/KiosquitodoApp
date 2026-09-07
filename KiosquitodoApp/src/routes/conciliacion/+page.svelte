@@ -1,0 +1,6 @@
+<div class="p-6">
+	<h1 class="text-2xl font-bold">Conciliación Mercado Pago</h1>
+	<p class="text-sm text-slate-500">
+		Ventas MP registradas vs pagos acreditados según la API. En construcción.
+	</p>
+</div>

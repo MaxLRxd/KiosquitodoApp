@@ -1,0 +1,1 @@
+//! Persistencia SQLite: conexión, PRAGMAs WAL y repositorios concretos.

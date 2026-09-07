@@ -1,0 +1,1 @@
+//! Capa de entrada: comandos Tauri (aprox. a controllers de Spring Boot).

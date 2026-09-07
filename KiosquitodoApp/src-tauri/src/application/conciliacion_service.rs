@@ -1,0 +1,1 @@
+//! Casos de uso de conciliación: sync MP, matching automático y vinculación manual.

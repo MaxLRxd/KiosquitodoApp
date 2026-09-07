@@ -1,0 +1,1 @@
+//! Trait del repositorio de productos y categorías.

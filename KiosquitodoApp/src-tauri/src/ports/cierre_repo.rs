@@ -1,0 +1,1 @@
+//! Trait del repositorio de cierres de caja y movimientos de stock.

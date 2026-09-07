@@ -1,0 +1,1 @@
+//! Casos de uso de POS: crear venta, registrar pago MP y devoluciones.

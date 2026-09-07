@@ -1,0 +1,1 @@
+//! Trait de almacenamiento seguro del Access Token (keyring).

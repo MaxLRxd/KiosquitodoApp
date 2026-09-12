@@ -2,6 +2,7 @@ import type {
 	Categoria,
 	CategoriaNueva,
 	CierrePersistido,
+	DevolucionRegistrada,
 	ItemVenta,
 	MedioPago,
 	MpPago,
@@ -59,10 +60,12 @@ export interface TiendaMock {
 	/** Pagos MP importados desde la API (integración diferida: queda vacío en el prototipo). */
 	pagosMp: MpPago[];
 	cierres: CierrePersistido[];
+	devoluciones: DevolucionRegistrada[];
 	proximoIdProducto: number;
 	proximoIdCategoria: number;
 	proximoIdVenta: number;
 	proximoIdCierre: number;
+	proximoIdDevolucion: number;
 }
 
 export function crearTienda(): TiendaMock {
@@ -117,10 +120,12 @@ export function crearTienda(): TiendaMock {
 		ventas: [],
 		pagosMp: [],
 		cierres: [],
+		devoluciones: [],
 		proximoIdProducto: 5,
 		proximoIdCategoria: 4,
 		proximoIdVenta: 1,
-		proximoIdCierre: 1
+		proximoIdCierre: 1,
+		proximoIdDevolucion: 1
 	};
 }
 
@@ -133,10 +138,12 @@ export function reiniciarTiendaMock(): void {
 	tiendaMock.ventas = fresca.ventas;
 	tiendaMock.pagosMp = fresca.pagosMp;
 	tiendaMock.cierres = fresca.cierres;
+	tiendaMock.devoluciones = fresca.devoluciones;
 	tiendaMock.proximoIdProducto = fresca.proximoIdProducto;
 	tiendaMock.proximoIdCategoria = fresca.proximoIdCategoria;
 	tiendaMock.proximoIdVenta = fresca.proximoIdVenta;
 	tiendaMock.proximoIdCierre = fresca.proximoIdCierre;
+	tiendaMock.proximoIdDevolucion = fresca.proximoIdDevolucion;
 }
 
 /** `SELECT * FROM productos WHERE barcode = ?1 AND activo = 1`. */
@@ -458,6 +465,62 @@ export function mockExportarCierresCsv(desde: string, hasta: string): string {
 	return lineas.join('\n');
 }
 
+// ── Lectura de ventas y devoluciones (espejo de application/venta_service.rs) ─
+
+/** `obtener_venta(id)`: devuelve la venta con sus ítems, o `null`. */
+export function mockObtenerVenta(id: number): Venta | null {
+	return tiendaMock.ventas.find((v) => v.id === id) ?? null;
+}
+
+/** `listar_ventas_dia(fecha)`: ventas del día (`date(hora) = ?1`), más recientes primero. */
+export function mockListarVentasDia(fecha: string): Venta[] {
+	return tiendaMock.ventas
+		.filter((v) => v.hora.startsWith(fecha))
+		.sort((a, b) => b.hora.localeCompare(a.hora));
+}
+
+/**
+ * `registrar_devolucion(venta_id, items, motivo)` con las validaciones del
+ * servicio (venta existente, al menos un ítem, cantidades positivas); repone
+ * stock por ítem y registra la devolución. El repo Rust no valida que los
+ * ítems pertenezcan a la venta original ni topes de cantidad: el mock lo
+ * espeja igual.
+ */
+export function mockRegistrarDevolucion(
+	ventaId: number,
+	items: ItemVenta[],
+	motivo: string | null = null
+): DevolucionRegistrada {
+	if (!tiendaMock.ventas.some((v) => v.id === ventaId)) throw new Error('La venta no existe');
+	if (items.length === 0) throw new Error('La devolución debe tener al menos un ítem');
+	if (items.some((i) => i.cantidad <= 0))
+		throw new Error('La cantidad devuelta de cada ítem debe ser mayor a cero');
+
+	for (const item of items) {
+		const producto = tiendaMock.productos.find((p) => p.id === item.producto_id);
+		if (producto) producto.stock += item.cantidad;
+	}
+
+	const devolucion: DevolucionRegistrada = {
+		id: tiendaMock.proximoIdDevolucion++,
+		venta_id: ventaId,
+		fecha: horaLocalIso(),
+		motivo: motivo?.trim() || null,
+		items: items.map((it) => ({ ...it }))
+	};
+	tiendaMock.devoluciones = [...tiendaMock.devoluciones, devolucion];
+	return devolucion;
+}
+
+/**
+ * `listar_devoluciones()`: devoluciones recientes, más nuevas primero.
+ * NOTA: el backend no expone este command aún (solo `registrar_devolucion`);
+ * es mock-only hasta definir el command de listado.
+ */
+export function mockListarDevoluciones(): DevolucionRegistrada[] {
+	return [...tiendaMock.devoluciones].sort((a, b) => b.fecha.localeCompare(a.fecha));
+}
+
 /** Despacha un command Tauri simulado por su nombre. */
 export function ejecutarMock<T>(comando: string, args: Record<string, unknown> = {}): Promise<T> {
 	switch (comando) {
@@ -504,6 +567,19 @@ export function ejecutarMock<T>(comando: string, args: Record<string, unknown> =
 			return Promise.resolve(
 				mockExportarCierresCsv(args.desde as string, args.hasta as string) as T
 			);
+		case 'obtener_venta':
+			return Promise.resolve(mockObtenerVenta(args.id as number) as T);
+		case 'listar_ventas_dia':
+			return Promise.resolve(mockListarVentasDia(args.fecha as string) as T);
+		case 'registrar_devolucion':
+			mockRegistrarDevolucion(
+				args.venta_id as number,
+				args.items as ItemVenta[],
+				(args.motivo as string | null | undefined) ?? null
+			);
+			return Promise.resolve(undefined as T);
+		case 'listar_devoluciones':
+			return Promise.resolve(mockListarDevoluciones() as T);
 		default:
 			return Promise.reject(new Error(`Comando sin implementación en el mock: ${comando}`));
 	}

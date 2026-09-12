@@ -76,6 +76,15 @@ export interface CierrePersistido {
 	resumen: ResumenCierre;
 }
 
+/** Registro de devolución (espejo de la tabla `devoluciones` + `devolucion_items`). */
+export interface DevolucionRegistrada {
+	id: number;
+	venta_id: number;
+	fecha: string; // fecha/hora local
+	motivo: string | null;
+	items: ItemVenta[];
+}
+
 export interface MpPago {
 	id: number;
 	mp_id: string;

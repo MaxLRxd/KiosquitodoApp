@@ -288,10 +288,10 @@
     "semantic_hash": "afcf0fec71739cc50ce0de7d84d8a2b3"
   },
   "KiosquitodoApp/src/lib/api/index.ts": {
-    "mtime": 1789195220.2668822,
-    "seen": 1789228252.5096023,
-    "ast_hash": "8437318fe516c298d4f2cd09b39247ea",
-    "semantic_hash": "8437318fe516c298d4f2cd09b39247ea"
+    "mtime": 1789248456.2058969,
+    "seen": 1789249255.7098746,
+    "ast_hash": "56f1a7d93a940c03f2556c5df5a6d801",
+    "semantic_hash": "56f1a7d93a940c03f2556c5df5a6d801"
   },
   "KiosquitodoApp/src/lib/components/Toast.svelte": {
     "mtime": 1789195220.2668822,
@@ -306,10 +306,10 @@
     "semantic_hash": "e9a7c481d2239dd0e4ef7d15b2fa843a"
   },
   "KiosquitodoApp/src/lib/types/index.ts": {
-    "mtime": 1789195220.2688825,
-    "seen": 1789228252.5096052,
-    "ast_hash": "cb2308b1dfb2d268f53a04ca24763130",
-    "semantic_hash": "cb2308b1dfb2d268f53a04ca24763130"
+    "mtime": 1789248404.5677037,
+    "seen": 1789249255.709884,
+    "ast_hash": "4979cc03817553fbf3d68d5a07a5a1c4",
+    "semantic_hash": "4979cc03817553fbf3d68d5a07a5a1c4"
   },
   "KiosquitodoApp/src/lib/utils/fecha.ts": {
     "mtime": 1789195220.2698832,
@@ -318,10 +318,10 @@
     "semantic_hash": "95ef26d58018f9767207b2dfd4bc9ac1"
   },
   "KiosquitodoApp/src/lib/utils/moneda.ts": {
-    "mtime": 1789195220.2698832,
-    "seen": 1789228252.5096066,
-    "ast_hash": "62b28f8a278252d39f956676e8749e2d",
-    "semantic_hash": "62b28f8a278252d39f956676e8749e2d"
+    "mtime": 1789246765.1970828,
+    "seen": 1789249255.7098863,
+    "ast_hash": "41795544003b424b9104dd31ef9ef612",
+    "semantic_hash": "41795544003b424b9104dd31ef9ef612"
   },
   "KiosquitodoApp/src/lib/utils/scanner.ts": {
     "mtime": 1789195220.2708824,
@@ -354,16 +354,16 @@
     "semantic_hash": "38446f1b89e0bdbf6faec3300a498f05"
   },
   "KiosquitodoApp/src/routes/+page.svelte": {
-    "mtime": 1789195220.2748845,
-    "seen": 1789228252.5096118,
-    "ast_hash": "6a485d33b0a4f5757df9f1ec65751e78",
-    "semantic_hash": "6a485d33b0a4f5757df9f1ec65751e78"
+    "mtime": 1789246866.268883,
+    "seen": 1789249255.7098935,
+    "ast_hash": "ef37bff04731e27bfff1f2b5de0b86b2",
+    "semantic_hash": "ef37bff04731e27bfff1f2b5de0b86b2"
   },
   "KiosquitodoApp/src/routes/cierre/+page.svelte": {
-    "mtime": 1789195220.2758863,
-    "seen": 1789228252.5096128,
-    "ast_hash": "d90308b28042213672c0a5b433b81433",
-    "semantic_hash": "d90308b28042213672c0a5b433b81433"
+    "mtime": 1789248108.9778178,
+    "seen": 1789249255.7098944,
+    "ast_hash": "e8556fa2f3277ca8e9e0a30de6bd9bc2",
+    "semantic_hash": "e8556fa2f3277ca8e9e0a30de6bd9bc2"
   },
   "KiosquitodoApp/src/routes/conciliacion/+page.svelte": {
     "mtime": 1789195220.2768867,
@@ -378,16 +378,16 @@
     "semantic_hash": "6cd83ae28cb7ad5917cd691c4d7db4d7"
   },
   "KiosquitodoApp/src/routes/devoluciones/+page.svelte": {
-    "mtime": 1789195220.2778862,
-    "seen": 1789228252.5096154,
-    "ast_hash": "d3e2e7b22e46603a12320bfb86049813",
-    "semantic_hash": "d3e2e7b22e46603a12320bfb86049813"
+    "mtime": 1789248558.9866874,
+    "seen": 1789249255.7098982,
+    "ast_hash": "d143c4724d104a05961929cc151bfbad",
+    "semantic_hash": "d143c4724d104a05961929cc151bfbad"
   },
   "KiosquitodoApp/src/routes/inventario/+page.svelte": {
-    "mtime": 1789195220.2788858,
-    "seen": 1789228252.5096161,
-    "ast_hash": "b48405a1ab8a1b5e86c45518e4db93fe",
-    "semantic_hash": "b48405a1ab8a1b5e86c45518e4db93fe"
+    "mtime": 1789247529.6100223,
+    "seen": 1789249255.7098992,
+    "ast_hash": "a754c09638a5828d19c97a6c081b03d0",
+    "semantic_hash": "a754c09638a5828d19c97a6c081b03d0"
   },
   "KiosquitodoApp/src/test/setup.ts": {
     "mtime": 1789195220.279884,
@@ -478,5 +478,53 @@
     "seen": 1789228252.5096295,
     "ast_hash": "662f0a5a79a93ff7008072d80f90df9d",
     "semantic_hash": "662f0a5a79a93ff7008072d80f90df9d"
+  },
+  "KiosquitodoApp/src/lib/api/mock.test.ts": {
+    "mtime": 1789248152.3625722,
+    "seen": 1789249255.7098768,
+    "ast_hash": "6860fcee00e083e31548fb629820d57e",
+    "semantic_hash": "6860fcee00e083e31548fb629820d57e"
+  },
+  "KiosquitodoApp/src/lib/api/mock.ts": {
+    "mtime": 1789248447.9346917,
+    "seen": 1789249255.709878,
+    "ast_hash": "987d941a0edb11dbab7f799e49ae7d6d",
+    "semantic_hash": "987d941a0edb11dbab7f799e49ae7d6d"
+  },
+  "KiosquitodoApp/src/lib/stores/carrito.svelte.ts": {
+    "mtime": 1789246751.1117568,
+    "seen": 1789249255.7098815,
+    "ast_hash": "ec02a9938b9e14d71082f481943a8639",
+    "semantic_hash": "ec02a9938b9e14d71082f481943a8639"
+  },
+  "KiosquitodoApp/src/lib/stores/carrito.test.ts": {
+    "mtime": 1789246880.987852,
+    "seen": 1789249255.7098827,
+    "ast_hash": "6a42d4c2f3c273a8674eadfe8c0ee398",
+    "semantic_hash": "6a42d4c2f3c273a8674eadfe8c0ee398"
+  },
+  "graphify-out/memory/query_20260912_205419_ac83037e_analiza_el_estado_actual_del_proyecto_y_determina.md": {
+    "mtime": 1789246459.0404105,
+    "seen": 1789249255.7099063,
+    "ast_hash": "9977b62804bddc2606ecc4239685e0f8",
+    "semantic_hash": "9977b62804bddc2606ecc4239685e0f8"
+  },
+  "KiosquitodoApp/static/favicon.png": {
+    "mtime": 1789195220.279884,
+    "seen": 1789249255.7099073,
+    "ast_hash": "3ce1f218e6e1ccae264e1cb32ad31e73",
+    "semantic_hash": "3ce1f218e6e1ccae264e1cb32ad31e73"
+  },
+  "diagramas/flujo_escaner_barras.svg": {
+    "mtime": 1789195220.2938833,
+    "seen": 1789249255.7099094,
+    "ast_hash": "579966432a2032049980b3eb00c6ad07",
+    "semantic_hash": "579966432a2032049980b3eb00c6ad07"
+  },
+  "diagramas/stack_tecnico_kiosco.svg": {
+    "mtime": 1789195220.3008828,
+    "seen": 1789249255.7099106,
+    "ast_hash": "122fb8c8888197f6f35cd9669911ae6c",
+    "semantic_hash": "122fb8c8888197f6f35cd9669911ae6c"
   }
 }

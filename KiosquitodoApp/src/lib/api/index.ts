@@ -3,6 +3,8 @@ import type {
 	Categoria,
 	CategoriaNueva,
 	CierrePersistido,
+	DevolucionRegistrada,
+	ItemVenta,
 	NuevoProducto,
 	NuevaVenta,
 	Producto,
@@ -77,10 +79,34 @@ export function crearCategoria(nueva: CategoriaNueva): Promise<Categoria> {
 	return ejecutar<Categoria>('crear_categoria', { nueva });
 }
 
-// ── Ventas ────────────────────────────────────────────────────────────────
+// ── Ventas y devoluciones ───────────────────────────────────────────────────
 
 export function registrarVenta(nueva: NuevaVenta): Promise<Venta> {
 	return ejecutar<Venta>('registrar_venta', { nueva });
+}
+
+/** Obtiene una venta completa (con ítems) por id. */
+export function obtenerVenta(id: number): Promise<Venta | null> {
+	return ejecutar<Venta | null>('obtener_venta', { id });
+}
+
+/** Lista las ventas del día (`YYYY-MM-DD`), más recientes primero. */
+export function listarVentasDia(fecha: string): Promise<Venta[]> {
+	return ejecutar<Venta[]>('listar_ventas_dia', { fecha });
+}
+
+/** Registra una devolución y repone el stock de los ítems devueltos. */
+export function registrarDevolucion(
+	ventaId: number,
+	items: ItemVenta[],
+	motivo: string | null = null
+): Promise<void> {
+	return ejecutar<void>('registrar_devolucion', { venta_id: ventaId, items, motivo });
+}
+
+/** Devuelve las devoluciones recientes (mock-only: el backend no expone command aún). */
+export function listarDevoluciones(): Promise<DevolucionRegistrada[]> {
+	return ejecutar<DevolucionRegistrada[]>('listar_devoluciones', {});
 }
 
 // ── Cierre de caja ─────────────────────────────────────────────────────────

@@ -1,5 +1,14 @@
 import { invoke, isTauri } from '@tauri-apps/api/core';
-import type { Categoria, CategoriaNueva, NuevoProducto, NuevaVenta, Producto, Venta } from '$lib/types';
+import type {
+	Categoria,
+	CategoriaNueva,
+	CierrePersistido,
+	NuevoProducto,
+	NuevaVenta,
+	Producto,
+	ResumenCierre,
+	Venta
+} from '$lib/types';
 import { ejecutarMock } from './mock';
 
 /**
@@ -72,4 +81,26 @@ export function crearCategoria(nueva: CategoriaNueva): Promise<Categoria> {
 
 export function registrarVenta(nueva: NuevaVenta): Promise<Venta> {
 	return ejecutar<Venta>('registrar_venta', { nueva });
+}
+
+// ── Cierre de caja ─────────────────────────────────────────────────────────
+
+/** Resumen del día sin persistir (previsualización del cierre). */
+export function resumenDiario(fecha: string): Promise<ResumenCierre> {
+	return ejecutar<ResumenCierre>('resumen_diario', { fecha });
+}
+
+/** Consolida y persiste el cierre de caja de `fecha` (YYYY-MM-DD). */
+export function cerrarCaja(fecha: string): Promise<CierrePersistido> {
+	return ejecutar<CierrePersistido>('cerrar_caja', { fecha });
+}
+
+/** Historial de cierres, más reciente primero. */
+export function listarCierres(): Promise<CierrePersistido[]> {
+	return ejecutar<CierrePersistido[]>('listar_cierres', {});
+}
+
+/** Exporta los cierres del rango `[desde, hasta]` a CSV (montos en centavos). */
+export function exportarCierresCsv(desde: string, hasta: string): Promise<string> {
+	return ejecutar<string>('exportar_cierres_csv', { desde, hasta });
 }

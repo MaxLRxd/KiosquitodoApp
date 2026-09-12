@@ -1,10 +1,14 @@
 import type {
 	Categoria,
 	CategoriaNueva,
+	CierrePersistido,
+	ItemVenta,
 	MedioPago,
+	MpPago,
 	NuevoProducto,
 	NuevaVenta,
 	Producto,
+	ResumenCierre,
 	Venta
 } from '$lib/types';
 
@@ -32,13 +36,33 @@ export function crearProducto(partial: Partial<Producto> & { id: number; nombre:
 	};
 }
 
+export function crearVentaMock(
+	partial: Partial<Venta> & { id: number; items: ItemVenta[]; total: number; hora: string }
+): Venta {
+	return {
+		medio_pago: 'efectivo' as MedioPago,
+		monto_efectivo: 0,
+		monto_mp: 0,
+		descripcion_mp: null,
+		...partial
+	};
+}
+
+export function crearCierre(id: number, fecha: string, resumen: ResumenCierre): CierrePersistido {
+	return { id, fecha, resumen };
+}
+
 export interface TiendaMock {
 	productos: Producto[];
 	categorias: Categoria[];
 	ventas: Venta[];
+	/** Pagos MP importados desde la API (integración diferida: queda vacío en el prototipo). */
+	pagosMp: MpPago[];
+	cierres: CierrePersistido[];
 	proximoIdProducto: number;
 	proximoIdCategoria: number;
 	proximoIdVenta: number;
+	proximoIdCierre: number;
 }
 
 export function crearTienda(): TiendaMock {
@@ -91,9 +115,12 @@ export function crearTienda(): TiendaMock {
 			crearCategoria(3, 'Snacks', '#10b981')
 		],
 		ventas: [],
+		pagosMp: [],
+		cierres: [],
 		proximoIdProducto: 5,
 		proximoIdCategoria: 4,
-		proximoIdVenta: 1
+		proximoIdVenta: 1,
+		proximoIdCierre: 1
 	};
 }
 
@@ -104,9 +131,12 @@ export function reiniciarTiendaMock(): void {
 	tiendaMock.productos = fresca.productos;
 	tiendaMock.categorias = fresca.categorias;
 	tiendaMock.ventas = fresca.ventas;
+	tiendaMock.pagosMp = fresca.pagosMp;
+	tiendaMock.cierres = fresca.cierres;
 	tiendaMock.proximoIdProducto = fresca.proximoIdProducto;
 	tiendaMock.proximoIdCategoria = fresca.proximoIdCategoria;
 	tiendaMock.proximoIdVenta = fresca.proximoIdVenta;
+	tiendaMock.proximoIdCierre = fresca.proximoIdCierre;
 }
 
 /** `SELECT * FROM productos WHERE barcode = ?1 AND activo = 1`. */
@@ -320,6 +350,7 @@ export function mockRegistrarVenta(nueva: NuevaVenta): Venta {
 
 	const venta: Venta = {
 		id: tiendaMock.proximoIdVenta++,
+		items: nueva.items.map((it) => ({ ...it })),
 		total: nueva.items.reduce((acc, it) => acc + it.cantidad * it.precio_unitario, 0),
 		medio_pago: nueva.medio_pago as MedioPago,
 		monto_efectivo: nueva.monto_efectivo,
@@ -329,6 +360,102 @@ export function mockRegistrarVenta(nueva: NuevaVenta): Venta {
 	};
 	tiendaMock.ventas = [...tiendaMock.ventas, venta];
 	return venta;
+}
+
+// ── Cierre de caja (espejo de application/cierre_service.rs) ───────────────
+
+/** Valida fecha `YYYY-MM-DD`; devuelve el mensaje de error o `null`. */
+export function validarFecha(fecha: string): string | null {
+	const f = fecha.trim();
+	const valida =
+		f.length === 10 &&
+		f[4] === '-' &&
+		f[7] === '-' &&
+		/^\d{4}$/.test(f.slice(0, 4)) &&
+		/^\d{2}$/.test(f.slice(5, 7)) &&
+		/^\d{2}$/.test(f.slice(8, 10));
+	return valida ? null : 'La fecha debe tener formato YYYY-MM-DD';
+}
+
+/**
+ * `resumen_diario(fecha)`: totales del día idénticos a la query de
+ * `CierreSqlite::resumen_dia` (Σ ventas por `date(hora)`, margen por ítem
+ * con costo ACTUAL del producto, delta MP = Σ pagos API − Σ ventas MP).
+ */
+export function mockResumenDiario(fecha: string): ResumenCierre {
+	const error = validarFecha(fecha);
+	if (error) throw new Error(error);
+	const dia = fecha.trim();
+
+	const ventasDelDia = tiendaMock.ventas.filter((v) => v.hora.startsWith(dia));
+
+	const total_efectivo = ventasDelDia.reduce((acc, v) => acc + v.monto_efectivo, 0);
+	const total_mp = ventasDelDia.reduce((acc, v) => acc + v.monto_mp, 0);
+	const total_ventas = ventasDelDia.reduce((acc, v) => acc + v.total, 0);
+	const cantidad_ventas = ventasDelDia.length;
+
+	// Margen bruto: (precio_unitario − COALESCE(precio_costo, 0)) × cantidad,
+	// con el costo ACTUAL del producto (mismo JOIN del SQL).
+	let margen_bruto = 0;
+	for (const v of ventasDelDia) {
+		for (const item of v.items) {
+			const costo = tiendaMock.productos.find((p) => p.id === item.producto_id)?.precio_costo ?? null;
+			margen_bruto += (item.precio_unitario - (costo ?? 0)) * item.cantidad;
+		}
+	}
+
+	// Delta MP: Σ pagos acreditados según API − Σ ventas MP registradas,
+	// solo ventas con medio de pago MP o mixto (misma query del backend).
+	const montoAcreditado = tiendaMock.pagosMp
+		.filter((p) => p.fecha_aprobacion?.startsWith(dia))
+		.reduce((acc, p) => acc + p.monto, 0);
+	const montoRegistrado = ventasDelDia
+		.filter((v) => v.medio_pago === 'mercado_pago' || v.medio_pago === 'mixto')
+		.reduce((acc, v) => acc + v.monto_mp, 0);
+	const delta_mp = montoAcreditado - montoRegistrado;
+
+	return {
+		total_efectivo,
+		total_mp,
+		total_ventas,
+		cantidad_ventas,
+		margen_bruto,
+		delta_mp
+	};
+}
+
+/**
+ * `cerrar_caja(fecha)`: consolida el resumen, lo persiste y devuelve el cierre.
+ * No borra ventas ni bloquea el día (puede repetirse, como el backend).
+ */
+export function mockCerrarCaja(fecha: string): CierrePersistido {
+	const dia = fecha.trim();
+	const resumen = mockResumenDiario(dia);
+	const cierre = crearCierre(tiendaMock.proximoIdCierre++, dia, resumen);
+	tiendaMock.cierres = [...tiendaMock.cierres, cierre];
+	return cierre;
+}
+
+/** `listar_cierres()`: histórico ordenado por fecha descendente (`ORDER BY fecha DESC`). */
+export function mockListarCierres(): CierrePersistido[] {
+	return [...tiendaMock.cierres].sort((a, b) => b.fecha.localeCompare(a.fecha));
+}
+
+/**
+ * `exportar_cierres_csv(desde, hasta)`: CSV con encabezado y montos en
+ * centavos; bordes vacíos = sin filtro por ese lado (mismo rango del backend).
+ */
+export function mockExportarCierresCsv(desde: string, hasta: string): string {
+	const lineas = ['fecha,total_efectivo,total_mp,total_ventas,cantidad_ventas,margen_bruto,delta_mp'];
+	for (const c of mockListarCierres()) {
+		if (desde.trim() !== '' && c.fecha < desde.trim()) continue;
+		if (hasta.trim() !== '' && c.fecha > hasta.trim()) continue;
+		const r = c.resumen;
+		lineas.push(
+			`${c.fecha},${r.total_efectivo},${r.total_mp},${r.total_ventas},${r.cantidad_ventas},${r.margen_bruto},${r.delta_mp}`
+		);
+	}
+	return lineas.join('\n');
 }
 
 /** Despacha un command Tauri simulado por su nombre. */
@@ -367,6 +494,16 @@ export function ejecutarMock<T>(comando: string, args: Record<string, unknown> =
 			return Promise.resolve(mockCrearCategoria(args.nueva as CategoriaNueva) as T);
 		case 'registrar_venta':
 			return Promise.resolve(mockRegistrarVenta(args.nueva as NuevaVenta) as T);
+		case 'resumen_diario':
+			return Promise.resolve(mockResumenDiario(args.fecha as string) as T);
+		case 'cerrar_caja':
+			return Promise.resolve(mockCerrarCaja(args.fecha as string) as T);
+		case 'listar_cierres':
+			return Promise.resolve(mockListarCierres() as T);
+		case 'exportar_cierres_csv':
+			return Promise.resolve(
+				mockExportarCierresCsv(args.desde as string, args.hasta as string) as T
+			);
 		default:
 			return Promise.reject(new Error(`Comando sin implementación en el mock: ${comando}`));
 	}

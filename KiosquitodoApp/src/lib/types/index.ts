@@ -49,12 +49,31 @@ export type MedioPago = 'efectivo' | 'mercado_pago' | 'mixto';
 
 export interface Venta {
 	id: number;
+	items: ItemVenta[];
 	total: number; // centavos
 	medio_pago: MedioPago;
 	monto_efectivo: number; // centavos
 	monto_mp: number; // centavos
 	descripcion_mp: string | null;
 	hora: string;
+}
+
+/** Resumen diario del cierre de caja (espejo de `ResumenCierre` en Rust). */
+export interface ResumenCierre {
+	total_efectivo: number; // centavos
+	total_mp: number; // centavos
+	total_ventas: number; // centavos
+	cantidad_ventas: number;
+	margen_bruto: number; // centavos
+	/** Σ pagos MP acreditados − Σ ventas MP registradas. >0 = la API muestra más. */
+	delta_mp: number;
+}
+
+/** Cierre persista (espejo de `CierrePersistido` en Rust). */
+export interface CierrePersistido {
+	id: number;
+	fecha: string; // YYYY-MM-DD
+	resumen: ResumenCierre;
 }
 
 export interface MpPago {

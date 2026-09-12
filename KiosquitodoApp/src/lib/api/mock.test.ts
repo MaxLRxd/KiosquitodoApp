@@ -4,12 +4,16 @@ import {
 	mockActualizarProducto,
 	mockAjustarStock,
 	mockBuscarProductoPorBarcode,
+	mockCerrarCaja,
 	mockCrearCategoria,
 	mockCrearProducto,
 	mockEliminarProducto,
+	mockExportarCierresCsv,
 	mockListarCategorias,
+	mockListarCierres,
 	mockListarProductos,
 	mockRegistrarVenta,
+	mockResumenDiario,
 	reiniciarTiendaMock,
 	tiendaMock,
 	validarBarcode
@@ -80,6 +84,7 @@ describe('mock: registrar venta', () => {
 		expect(venta.id).toBe(1);
 		expect(venta.total).toBe(360000);
 		expect(venta.medio_pago).toBe('efectivo');
+		expect(venta.items).toEqual([{ producto_id: 1, cantidad: 2, precio_unitario: 180000 }]);
 		expect(venta.hora).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/);
 		expect(tiendaMock.productos[0].stock).toBe(stockPrevio - 2);
 		expect(tiendaMock.ventas).toHaveLength(1);
@@ -259,5 +264,119 @@ describe('mock: categorías', () => {
 	it('rechaza nombre vacío o duplicado (sin importar mayúsculas)', () => {
 		expect(() => mockCrearCategoria({ nombre: '  ' })).toThrow(/vacío/);
 		expect(() => mockCrearCategoria({ nombre: 'bebidas' })).toThrow(/nombre/);
+	});
+});
+
+describe('mock: cierre de caja', () => {
+	function hoy(): string {
+		const ahora = new Date();
+		const pad = (n: number) => String(n).padStart(2, '0');
+		return `${ahora.getFullYear()}-${pad(ahora.getMonth() + 1)}-${pad(ahora.getDate())}`;
+	}
+
+	function venta(overrides: Partial<NuevaVenta> = {}): NuevaVenta {
+		return {
+			items: [{ producto_id: 1, cantidad: 2, precio_unitario: 180000 }],
+			medio_pago: 'efectivo',
+			monto_efectivo: 360000,
+			monto_mp: 0,
+			descripcion_mp: null,
+			...overrides
+		};
+	}
+
+	it('resumen del día suma totales, margen y delta MP como el backend', () => {
+		// Efectivo: Coca-Cola x2 @180000 (costo 140000) → margen 2·40000 = 80000
+		mockRegistrarVenta(venta());
+		// MP: Alfajor Jorgito x1 @140000 (costo 100000) → margen 40000
+		mockRegistrarVenta(
+			venta({
+				items: [{ producto_id: 3, cantidad: 1, precio_unitario: 140000 }],
+				medio_pago: 'mercado_pago',
+				monto_efectivo: 0,
+				monto_mp: 140000
+			})
+		);
+		// Mixto: Café x2 @260000 (costo 210000) → margen 2·50000 = 100000
+		mockRegistrarVenta(
+			venta({
+				items: [{ producto_id: 4, cantidad: 2, precio_unitario: 260000 }],
+				medio_pago: 'mixto',
+				monto_efectivo: 300000,
+				monto_mp: 220000
+			})
+		);
+
+		const r = mockResumenDiario(hoy());
+		expect(r.total_efectivo).toBe(660000);
+		expect(r.total_mp).toBe(360000);
+		expect(r.total_ventas).toBe(1020000);
+		expect(r.cantidad_ventas).toBe(3);
+		expect(r.margen_bruto).toBe(220000);
+		// Sin pagos importados desde la API: delta = 0 − (140000 + 220000)
+		expect(r.delta_mp).toBe(-360000);
+	});
+
+	it('resumen sin ventas devuelve todo en cero', () => {
+		expect(mockResumenDiario('2020-01-01')).toEqual({
+			total_efectivo: 0,
+			total_mp: 0,
+			total_ventas: 0,
+			cantidad_ventas: 0,
+			margen_bruto: 0,
+			delta_mp: 0
+		});
+	});
+
+	it('resumen valida el formato de la fecha', () => {
+		expect(() => mockResumenDiario('10-09-2026')).toThrow(/YYYY-MM-DD/);
+		expect(() => mockResumenDiario('2026-9-1')).toThrow(/YYYY-MM-DD/);
+		expect(() => mockResumenDiario('')).toThrow(/YYYY-MM-DD/);
+	});
+
+	it('cerrar caja persiste el resumen y lo lista', () => {
+		mockRegistrarVenta(venta());
+		const cierre = mockCerrarCaja(hoy());
+		expect(cierre.id).toBe(1);
+		expect(cierre.fecha).toBe(hoy());
+		expect(cierre.resumen.cantidad_ventas).toBe(1);
+		expect(cierre.resumen.total_ventas).toBe(360000);
+		expect(mockListarCierres()).toHaveLength(1);
+	});
+
+	it('listar cierres ordena por fecha descendente', () => {
+		mockCerrarCaja('2026-09-10');
+		mockCerrarCaja('2026-09-11');
+		mockCerrarCaja('2026-09-09');
+		expect(mockListarCierres().map((c) => c.fecha)).toEqual([
+			'2026-09-11',
+			'2026-09-10',
+			'2026-09-09'
+		]);
+	});
+
+	it('exporta CSV con encabezado, montos en centavos y filtro por rango', () => {
+		mockCerrarCaja('2026-09-09');
+		mockCerrarCaja('2026-09-10');
+		const csv = mockExportarCierresCsv('2026-09-10', '2026-09-10');
+		const lineas = csv.split('\n');
+		expect(lineas[0]).toBe(
+			'fecha,total_efectivo,total_mp,total_ventas,cantidad_ventas,margen_bruto,delta_mp'
+		);
+		expect(lineas).toHaveLength(2);
+		expect(lineas[1]).toBe('2026-09-10,0,0,0,0,0,0');
+		expect(mockExportarCierresCsv('', '').split('\n')).toHaveLength(3);
+	});
+
+	it('despacha los commands de cierre vía ejecutarMock', async () => {
+		mockRegistrarVenta(venta());
+		const resumen = await ejecutarMock<{ cantidad_ventas: number }>('resumen_diario', {
+			fecha: hoy()
+		});
+		expect(resumen.cantidad_ventas).toBe(1);
+		const cierre = await ejecutarMock<{ id: number }>('cerrar_caja', { fecha: hoy() });
+		expect(cierre.id).toBe(1);
+		const csv = await ejecutarMock<string>('exportar_cierres_csv', { desde: '', hasta: '' });
+		expect(csv.startsWith('fecha,total_efectivo')).toBe(true);
 	});
 });

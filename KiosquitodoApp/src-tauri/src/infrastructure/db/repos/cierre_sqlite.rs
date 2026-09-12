@@ -122,6 +122,14 @@ impl CierreRepo for CierreSqlite {
             .collect::<Result<Vec<_>, _>>()?;
         Ok(cierres)
     }
+
+    /// `VACUUM` reconstruye el archivo de la BD y recupera espacio.
+    /// No corre dentro de una transacción (SQLite lo rechaza).
+    fn vacuar(&self) -> AppResult<()> {
+        let conn = self.db.conn.lock().expect("mutex de BD envenenado");
+        conn.execute_batch("VACUUM")?;
+        Ok(())
+    }
 }
 
 // ── Tests ────────────────────────────────────────────────────────────
@@ -262,5 +270,20 @@ mod tests {
         // delta = Σ pagos API (1500) − Σ ventas MP registradas (1000) = +500
         let resumen = cierres.resumen_dia(&hoy).unwrap();
         assert_eq!(resumen.delta_mp, 500);
+    }
+
+    #[test]
+    fn vacuar_no_falla_y_mantiene_datos() {
+        let (cierres, _, _, _) = setup();
+        let hoy = chrono::Local::now().format("%Y-%m-%d").to_string();
+        let r = ResumenCierre::nuevo(1000, 0, 1000, 1, 400, 0);
+        let id = cierres.guardar_cierre(&hoy, &r).unwrap();
+
+        cierres.vacuar().unwrap();
+
+        let lista = cierres.obtener_cierres().unwrap();
+        assert_eq!(lista.len(), 1);
+        assert_eq!(lista[0].id, id);
+        assert_eq!(lista[0].resumen.total_efectivo, 1000);
     }
 }

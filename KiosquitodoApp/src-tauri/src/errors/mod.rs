@@ -42,6 +42,13 @@ impl fmt::Display for AppError {
 /// Alias conveniente para Result con AppError.
 pub type AppResult<T> = Result<T, AppError>;
 
+impl AppError {
+    /// Constructor ergonómico para errores de regla de negocio.
+    pub fn negocio(msg: impl Into<String>) -> Self {
+        Self::Negocio(msg.into())
+    }
+}
+
 // ── Conversiones From ────────────────────────────────────────────────
 // Permiten usar el operador `?` con errores externos dentro de `AppResult`.
 

@@ -1,0 +1,482 @@
+{
+  "KiosquitodoApp/package.json": {
+    "mtime": 1789195220.2288892,
+    "seen": 1789228252.5095544,
+    "ast_hash": "2f031956b68ffd8b933831c2039ea72d",
+    "semantic_hash": "2f031956b68ffd8b933831c2039ea72d"
+  },
+  "KiosquitodoApp/postcss.config.js": {
+    "mtime": 1789195220.229884,
+    "seen": 1789228252.5095594,
+    "ast_hash": "8773dd591a2337547c058c224f3fd385",
+    "semantic_hash": "8773dd591a2337547c058c224f3fd385"
+  },
+  "KiosquitodoApp/src-tauri/Cargo.toml": {
+    "mtime": 1789195220.2328827,
+    "seen": 1789228252.5095613,
+    "ast_hash": "830235ab8745c9c498717fd8c1f55c6b",
+    "semantic_hash": "830235ab8745c9c498717fd8c1f55c6b"
+  },
+  "KiosquitodoApp/src-tauri/build.rs": {
+    "mtime": 1789195220.2338831,
+    "seen": 1789228252.509562,
+    "ast_hash": "46bb5ed70ad7b280d9905998b2aa1ad6",
+    "semantic_hash": "46bb5ed70ad7b280d9905998b2aa1ad6"
+  },
+  "KiosquitodoApp/src-tauri/capabilities/default.json": {
+    "mtime": 1789195220.2348838,
+    "seen": 1789228252.5095632,
+    "ast_hash": "4f47b0c35325724ddb823fbd205c91f4",
+    "semantic_hash": "4f47b0c35325724ddb823fbd205c91f4"
+  },
+  "KiosquitodoApp/src-tauri/src/application/cierre_service.rs": {
+    "mtime": 1789195220.2388837,
+    "seen": 1789228252.509564,
+    "ast_hash": "cfa237d158caf68e8a5581d5729beb0c",
+    "semantic_hash": "cfa237d158caf68e8a5581d5729beb0c"
+  },
+  "KiosquitodoApp/src-tauri/src/application/conciliacion_service.rs": {
+    "mtime": 1789195220.2398832,
+    "seen": 1789228252.509565,
+    "ast_hash": "5ca0b880eab6224c3ff9442c64599a25",
+    "semantic_hash": "5ca0b880eab6224c3ff9442c64599a25"
+  },
+  "KiosquitodoApp/src-tauri/src/application/mod.rs": {
+    "mtime": 1789195220.2398832,
+    "seen": 1789228252.509566,
+    "ast_hash": "9c6aba6a3ec13c2320683667ddda04ee",
+    "semantic_hash": "9c6aba6a3ec13c2320683667ddda04ee"
+  },
+  "KiosquitodoApp/src-tauri/src/application/producto_service.rs": {
+    "mtime": 1789195220.2408834,
+    "seen": 1789228252.509567,
+    "ast_hash": "5fda71d1185bdaeac6c7db6a53d0f620",
+    "semantic_hash": "5fda71d1185bdaeac6c7db6a53d0f620"
+  },
+  "KiosquitodoApp/src-tauri/src/application/venta_service.rs": {
+    "mtime": 1789195220.2408834,
+    "seen": 1789228252.5095677,
+    "ast_hash": "c36863645bf2de2a314dad6c47a126da",
+    "semantic_hash": "c36863645bf2de2a314dad6c47a126da"
+  },
+  "KiosquitodoApp/src-tauri/src/config/mod.rs": {
+    "mtime": 1789195220.2418838,
+    "seen": 1789228252.5095685,
+    "ast_hash": "7197bfb28f3a69ba1bec6a24263a4a95",
+    "semantic_hash": "7197bfb28f3a69ba1bec6a24263a4a95"
+  },
+  "KiosquitodoApp/src-tauri/src/domain/cierre.rs": {
+    "mtime": 1789195220.242883,
+    "seen": 1789228252.5095696,
+    "ast_hash": "d712364c0443d979f1a14d3e7a6bf60b",
+    "semantic_hash": "d712364c0443d979f1a14d3e7a6bf60b"
+  },
+  "KiosquitodoApp/src-tauri/src/domain/conciliacion.rs": {
+    "mtime": 1789195220.242883,
+    "seen": 1789228252.5095706,
+    "ast_hash": "e8f48a72beadb58135459d6efd382162",
+    "semantic_hash": "e8f48a72beadb58135459d6efd382162"
+  },
+  "KiosquitodoApp/src-tauri/src/domain/mod.rs": {
+    "mtime": 1789195220.243883,
+    "seen": 1789228252.5095713,
+    "ast_hash": "46e2955522e33cf1782073cabf2e4140",
+    "semantic_hash": "46e2955522e33cf1782073cabf2e4140"
+  },
+  "KiosquitodoApp/src-tauri/src/domain/pago.rs": {
+    "mtime": 1789195220.244883,
+    "seen": 1789228252.509572,
+    "ast_hash": "55251a97b3357a2d4e521b4acabdd7ff",
+    "semantic_hash": "55251a97b3357a2d4e521b4acabdd7ff"
+  },
+  "KiosquitodoApp/src-tauri/src/domain/producto.rs": {
+    "mtime": 1789195220.244883,
+    "seen": 1789228252.5095732,
+    "ast_hash": "cabafc56670324d2c1a86da817d795bb",
+    "semantic_hash": "cabafc56670324d2c1a86da817d795bb"
+  },
+  "KiosquitodoApp/src-tauri/src/domain/venta.rs": {
+    "mtime": 1789195220.2458832,
+    "seen": 1789228252.509574,
+    "ast_hash": "396505eb2741af427eabca2888734a92",
+    "semantic_hash": "396505eb2741af427eabca2888734a92"
+  },
+  "KiosquitodoApp/src-tauri/src/errors/mod.rs": {
+    "mtime": 1789195220.2458832,
+    "seen": 1789228252.509575,
+    "ast_hash": "84153ba015667323c6c3c6a01de230e4",
+    "semantic_hash": "84153ba015667323c6c3c6a01de230e4"
+  },
+  "KiosquitodoApp/src-tauri/src/infrastructure/api/caja_cmd.rs": {
+    "mtime": 1789195220.246884,
+    "seen": 1789228252.5095758,
+    "ast_hash": "ff2af174d657eca7da38b972fa8b62d6",
+    "semantic_hash": "ff2af174d657eca7da38b972fa8b62d6"
+  },
+  "KiosquitodoApp/src-tauri/src/infrastructure/api/config_cmd.rs": {
+    "mtime": 1789195220.2478826,
+    "seen": 1789228252.5095768,
+    "ast_hash": "3e7e73d2d15b7286b7e0338564044372",
+    "semantic_hash": "3e7e73d2d15b7286b7e0338564044372"
+  },
+  "KiosquitodoApp/src-tauri/src/infrastructure/api/mod.rs": {
+    "mtime": 1789195220.2478826,
+    "seen": 1789228252.5095778,
+    "ast_hash": "4654df4a8e6d9ad964b9c10b1c9b06bc",
+    "semantic_hash": "4654df4a8e6d9ad964b9c10b1c9b06bc"
+  },
+  "KiosquitodoApp/src-tauri/src/infrastructure/api/producto_cmd.rs": {
+    "mtime": 1789195220.2488835,
+    "seen": 1789228252.5095785,
+    "ast_hash": "cd4733eff1b1aec51fc05be019e7ddb6",
+    "semantic_hash": "cd4733eff1b1aec51fc05be019e7ddb6"
+  },
+  "KiosquitodoApp/src-tauri/src/infrastructure/api/venta_cmd.rs": {
+    "mtime": 1789195220.2488835,
+    "seen": 1789228252.5095797,
+    "ast_hash": "a5e5f20bf16b7157c4b8d72c1eaf39a8",
+    "semantic_hash": "a5e5f20bf16b7157c4b8d72c1eaf39a8"
+  },
+  "KiosquitodoApp/src-tauri/src/infrastructure/db/migrations.rs": {
+    "mtime": 1789195220.2498832,
+    "seen": 1789228252.5095806,
+    "ast_hash": "96d07a218a4bee7fa74a9e4a5e93bcdc",
+    "semantic_hash": "96d07a218a4bee7fa74a9e4a5e93bcdc"
+  },
+  "KiosquitodoApp/src-tauri/src/infrastructure/db/mod.rs": {
+    "mtime": 1789195220.2508838,
+    "seen": 1789228252.5095813,
+    "ast_hash": "e3887c9dc5e78bdd3261227cff25ef00",
+    "semantic_hash": "e3887c9dc5e78bdd3261227cff25ef00"
+  },
+  "KiosquitodoApp/src-tauri/src/infrastructure/db/repos/cierre_sqlite.rs": {
+    "mtime": 1789195220.2508838,
+    "seen": 1789228252.509582,
+    "ast_hash": "3af90f738675672adc7534c2af7d8610",
+    "semantic_hash": "3af90f738675672adc7534c2af7d8610"
+  },
+  "KiosquitodoApp/src-tauri/src/infrastructure/db/repos/mod.rs": {
+    "mtime": 1789195220.2518833,
+    "seen": 1789228252.509583,
+    "ast_hash": "019041267355c4c4071ee5f50aaec153",
+    "semantic_hash": "019041267355c4c4071ee5f50aaec153"
+  },
+  "KiosquitodoApp/src-tauri/src/infrastructure/db/repos/pago_sqlite.rs": {
+    "mtime": 1789195220.2528832,
+    "seen": 1789228252.509584,
+    "ast_hash": "4feb7a1e0e90f8f2b855d661ef3a6b9c",
+    "semantic_hash": "4feb7a1e0e90f8f2b855d661ef3a6b9c"
+  },
+  "KiosquitodoApp/src-tauri/src/infrastructure/db/repos/producto_sqlite.rs": {
+    "mtime": 1789195220.2528832,
+    "seen": 1789228252.5095847,
+    "ast_hash": "35a38a87c704f91a45e8ae9dcdbec876",
+    "semantic_hash": "35a38a87c704f91a45e8ae9dcdbec876"
+  },
+  "KiosquitodoApp/src-tauri/src/infrastructure/db/repos/venta_sqlite.rs": {
+    "mtime": 1789195220.2538826,
+    "seen": 1789228252.5095854,
+    "ast_hash": "f103e6eb77c8cebac6172b84bc1989b2",
+    "semantic_hash": "f103e6eb77c8cebac6172b84bc1989b2"
+  },
+  "KiosquitodoApp/src-tauri/src/infrastructure/mercadopago/mod.rs": {
+    "mtime": 1789195220.2548845,
+    "seen": 1789228252.5095863,
+    "ast_hash": "71b64a6eb6ee487a69b4df54a588a57e",
+    "semantic_hash": "71b64a6eb6ee487a69b4df54a588a57e"
+  },
+  "KiosquitodoApp/src-tauri/src/infrastructure/mod.rs": {
+    "mtime": 1789195220.2548845,
+    "seen": 1789228252.5095873,
+    "ast_hash": "30f3b68e983d337733e6c379a8425151",
+    "semantic_hash": "30f3b68e983d337733e6c379a8425151"
+  },
+  "KiosquitodoApp/src-tauri/src/infrastructure/system/autostart.rs": {
+    "mtime": 1789195220.2558842,
+    "seen": 1789228252.509588,
+    "ast_hash": "8ae4fa6564e1231959173e00ae6646d3",
+    "semantic_hash": "8ae4fa6564e1231959173e00ae6646d3"
+  },
+  "KiosquitodoApp/src-tauri/src/infrastructure/system/backup.rs": {
+    "mtime": 1789195220.256883,
+    "seen": 1789228252.509589,
+    "ast_hash": "8251791fb4f1efa44a277ffb7a0c3e4d",
+    "semantic_hash": "8251791fb4f1efa44a277ffb7a0c3e4d"
+  },
+  "KiosquitodoApp/src-tauri/src/infrastructure/system/keyring_store.rs": {
+    "mtime": 1789195220.256883,
+    "seen": 1789228252.5095897,
+    "ast_hash": "1ecd1dce9f2637a01f46287a000e1c6d",
+    "semantic_hash": "1ecd1dce9f2637a01f46287a000e1c6d"
+  },
+  "KiosquitodoApp/src-tauri/src/infrastructure/system/logging.rs": {
+    "mtime": 1789195220.256883,
+    "seen": 1789228252.5095906,
+    "ast_hash": "6e317fbfcceea773e553b3429652a526",
+    "semantic_hash": "6e317fbfcceea773e553b3429652a526"
+  },
+  "KiosquitodoApp/src-tauri/src/infrastructure/system/mod.rs": {
+    "mtime": 1789195220.2578826,
+    "seen": 1789228252.5095916,
+    "ast_hash": "212d89f15117d3cc54729768936e4638",
+    "semantic_hash": "212d89f15117d3cc54729768936e4638"
+  },
+  "KiosquitodoApp/src-tauri/src/lib.rs": {
+    "mtime": 1789195220.2588832,
+    "seen": 1789228252.5095923,
+    "ast_hash": "d2a6fe16d2fb043cd2fe4208e6e29129",
+    "semantic_hash": "d2a6fe16d2fb043cd2fe4208e6e29129"
+  },
+  "KiosquitodoApp/src-tauri/src/main.rs": {
+    "mtime": 1789195220.2588832,
+    "seen": 1789228252.5095932,
+    "ast_hash": "f4126b1ac582f748f6721a413d149da5",
+    "semantic_hash": "f4126b1ac582f748f6721a413d149da5"
+  },
+  "KiosquitodoApp/src-tauri/src/ports/cierre_repo.rs": {
+    "mtime": 1789195220.2598834,
+    "seen": 1789228252.5095942,
+    "ast_hash": "144ce7df643d759b8f8ab21b1bb50ba5",
+    "semantic_hash": "144ce7df643d759b8f8ab21b1bb50ba5"
+  },
+  "KiosquitodoApp/src-tauri/src/ports/credencial_repo.rs": {
+    "mtime": 1789195220.2598834,
+    "seen": 1789228252.509595,
+    "ast_hash": "882c2f96de5cc204830577db5dc71d28",
+    "semantic_hash": "882c2f96de5cc204830577db5dc71d28"
+  },
+  "KiosquitodoApp/src-tauri/src/ports/mod.rs": {
+    "mtime": 1789195220.2608829,
+    "seen": 1789228252.5095959,
+    "ast_hash": "9157d348c497b94536b7941d8baba585",
+    "semantic_hash": "9157d348c497b94536b7941d8baba585"
+  },
+  "KiosquitodoApp/src-tauri/src/ports/mp_cliente.rs": {
+    "mtime": 1789195220.2618835,
+    "seen": 1789228252.5095966,
+    "ast_hash": "2bea9aa25dd05d4a681dbb9f6f0f07bc",
+    "semantic_hash": "2bea9aa25dd05d4a681dbb9f6f0f07bc"
+  },
+  "KiosquitodoApp/src-tauri/src/ports/pago_repo.rs": {
+    "mtime": 1789195220.2618835,
+    "seen": 1789228252.509598,
+    "ast_hash": "70752dbb1a96585a9634bedf516b41ba",
+    "semantic_hash": "70752dbb1a96585a9634bedf516b41ba"
+  },
+  "KiosquitodoApp/src-tauri/src/ports/producto_repo.rs": {
+    "mtime": 1789195220.2628822,
+    "seen": 1789228252.509599,
+    "ast_hash": "7ef638a41a996d9c07a6caade4fb5fc1",
+    "semantic_hash": "7ef638a41a996d9c07a6caade4fb5fc1"
+  },
+  "KiosquitodoApp/src-tauri/src/ports/venta_repo.rs": {
+    "mtime": 1789195220.2628822,
+    "seen": 1789228252.5095997,
+    "ast_hash": "1b8a4d28cd2744b62d48c4f00c8ac732",
+    "semantic_hash": "1b8a4d28cd2744b62d48c4f00c8ac732"
+  },
+  "KiosquitodoApp/src-tauri/tauri.conf.json": {
+    "mtime": 1789195220.263883,
+    "seen": 1789228252.5096009,
+    "ast_hash": "a574b9873c336f2e4b06a09ead12d2ae",
+    "semantic_hash": "a574b9873c336f2e4b06a09ead12d2ae"
+  },
+  "KiosquitodoApp/src/app.d.ts": {
+    "mtime": 1789195220.2648838,
+    "seen": 1789228252.5096016,
+    "ast_hash": "afcf0fec71739cc50ce0de7d84d8a2b3",
+    "semantic_hash": "afcf0fec71739cc50ce0de7d84d8a2b3"
+  },
+  "KiosquitodoApp/src/lib/api/index.ts": {
+    "mtime": 1789195220.2668822,
+    "seen": 1789228252.5096023,
+    "ast_hash": "8437318fe516c298d4f2cd09b39247ea",
+    "semantic_hash": "8437318fe516c298d4f2cd09b39247ea"
+  },
+  "KiosquitodoApp/src/lib/components/Toast.svelte": {
+    "mtime": 1789195220.2668822,
+    "seen": 1789228252.5096033,
+    "ast_hash": "b61e199049a1c8e5b81c921a96e76658",
+    "semantic_hash": "b61e199049a1c8e5b81c921a96e76658"
+  },
+  "KiosquitodoApp/src/lib/stores/app.svelte.ts": {
+    "mtime": 1789195220.267883,
+    "seen": 1789228252.509604,
+    "ast_hash": "e9a7c481d2239dd0e4ef7d15b2fa843a",
+    "semantic_hash": "e9a7c481d2239dd0e4ef7d15b2fa843a"
+  },
+  "KiosquitodoApp/src/lib/types/index.ts": {
+    "mtime": 1789195220.2688825,
+    "seen": 1789228252.5096052,
+    "ast_hash": "cb2308b1dfb2d268f53a04ca24763130",
+    "semantic_hash": "cb2308b1dfb2d268f53a04ca24763130"
+  },
+  "KiosquitodoApp/src/lib/utils/fecha.ts": {
+    "mtime": 1789195220.2698832,
+    "seen": 1789228252.509606,
+    "ast_hash": "95ef26d58018f9767207b2dfd4bc9ac1",
+    "semantic_hash": "95ef26d58018f9767207b2dfd4bc9ac1"
+  },
+  "KiosquitodoApp/src/lib/utils/moneda.ts": {
+    "mtime": 1789195220.2698832,
+    "seen": 1789228252.5096066,
+    "ast_hash": "62b28f8a278252d39f956676e8749e2d",
+    "semantic_hash": "62b28f8a278252d39f956676e8749e2d"
+  },
+  "KiosquitodoApp/src/lib/utils/scanner.ts": {
+    "mtime": 1789195220.2708824,
+    "seen": 1789228252.5096073,
+    "ast_hash": "3aff57701da4f796496eb51e9eec5afc",
+    "semantic_hash": "3aff57701da4f796496eb51e9eec5afc"
+  },
+  "KiosquitodoApp/src/lib/utils/sonido.ts": {
+    "mtime": 1789195220.2718832,
+    "seen": 1789228252.5096083,
+    "ast_hash": "f98b74cf8ca583e0e518294fc02b639f",
+    "semantic_hash": "f98b74cf8ca583e0e518294fc02b639f"
+  },
+  "KiosquitodoApp/src/lib/utils/teclas.ts": {
+    "mtime": 1789195220.2728834,
+    "seen": 1789228252.5096092,
+    "ast_hash": "8d742ee33181a17f0cd13299756f4cb7",
+    "semantic_hash": "8d742ee33181a17f0cd13299756f4cb7"
+  },
+  "KiosquitodoApp/src/routes/+layout.svelte": {
+    "mtime": 1789195220.273883,
+    "seen": 1789228252.50961,
+    "ast_hash": "621e45c0a51712921a6702bb21852845",
+    "semantic_hash": "621e45c0a51712921a6702bb21852845"
+  },
+  "KiosquitodoApp/src/routes/+layout.ts": {
+    "mtime": 1789195220.273883,
+    "seen": 1789228252.509611,
+    "ast_hash": "38446f1b89e0bdbf6faec3300a498f05",
+    "semantic_hash": "38446f1b89e0bdbf6faec3300a498f05"
+  },
+  "KiosquitodoApp/src/routes/+page.svelte": {
+    "mtime": 1789195220.2748845,
+    "seen": 1789228252.5096118,
+    "ast_hash": "6a485d33b0a4f5757df9f1ec65751e78",
+    "semantic_hash": "6a485d33b0a4f5757df9f1ec65751e78"
+  },
+  "KiosquitodoApp/src/routes/cierre/+page.svelte": {
+    "mtime": 1789195220.2758863,
+    "seen": 1789228252.5096128,
+    "ast_hash": "d90308b28042213672c0a5b433b81433",
+    "semantic_hash": "d90308b28042213672c0a5b433b81433"
+  },
+  "KiosquitodoApp/src/routes/conciliacion/+page.svelte": {
+    "mtime": 1789195220.2768867,
+    "seen": 1789228252.5096135,
+    "ast_hash": "58babbc943f1eaa9f97ff85a50eb28d2",
+    "semantic_hash": "58babbc943f1eaa9f97ff85a50eb28d2"
+  },
+  "KiosquitodoApp/src/routes/configuracion/+page.svelte": {
+    "mtime": 1789195220.2768867,
+    "seen": 1789228252.5096147,
+    "ast_hash": "6cd83ae28cb7ad5917cd691c4d7db4d7",
+    "semantic_hash": "6cd83ae28cb7ad5917cd691c4d7db4d7"
+  },
+  "KiosquitodoApp/src/routes/devoluciones/+page.svelte": {
+    "mtime": 1789195220.2778862,
+    "seen": 1789228252.5096154,
+    "ast_hash": "d3e2e7b22e46603a12320bfb86049813",
+    "semantic_hash": "d3e2e7b22e46603a12320bfb86049813"
+  },
+  "KiosquitodoApp/src/routes/inventario/+page.svelte": {
+    "mtime": 1789195220.2788858,
+    "seen": 1789228252.5096161,
+    "ast_hash": "b48405a1ab8a1b5e86c45518e4db93fe",
+    "semantic_hash": "b48405a1ab8a1b5e86c45518e4db93fe"
+  },
+  "KiosquitodoApp/src/test/setup.ts": {
+    "mtime": 1789195220.279884,
+    "seen": 1789228252.509617,
+    "ast_hash": "8d16450e74062f6cba65f77495e2d274",
+    "semantic_hash": "8d16450e74062f6cba65f77495e2d274"
+  },
+  "KiosquitodoApp/svelte.config.js": {
+    "mtime": 1789195220.281883,
+    "seen": 1789228252.5096178,
+    "ast_hash": "ecbd7d0434bb2e88930d6bbbeba860ad",
+    "semantic_hash": "ecbd7d0434bb2e88930d6bbbeba860ad"
+  },
+  "KiosquitodoApp/tailwind.config.js": {
+    "mtime": 1789195220.281883,
+    "seen": 1789228252.5096188,
+    "ast_hash": "f422f65d6ddb0bfd842c7a17b9ea80e2",
+    "semantic_hash": "f422f65d6ddb0bfd842c7a17b9ea80e2"
+  },
+  "KiosquitodoApp/tsconfig.json": {
+    "mtime": 1789195220.2828832,
+    "seen": 1789228252.5096197,
+    "ast_hash": "24548d846ff17409ca9fa47fbc2e4023",
+    "semantic_hash": "24548d846ff17409ca9fa47fbc2e4023"
+  },
+  "KiosquitodoApp/vite.config.ts": {
+    "mtime": 1789195220.2828832,
+    "seen": 1789228252.5096204,
+    "ast_hash": "388bad21a978b253635b4ee7564c72e8",
+    "semantic_hash": "388bad21a978b253635b4ee7564c72e8"
+  },
+  ".opencode/skills/aprendizaje-activo-con-ia/SKILL.md": {
+    "mtime": 1789195220.2248833,
+    "seen": 1789228252.5096216,
+    "ast_hash": "6d929e6650ee3cfbd3727a08c7daad7c",
+    "semantic_hash": "6d929e6650ee3cfbd3727a08c7daad7c"
+  },
+  "IMPLEMENTATION.md": {
+    "mtime": 1789225798.7866836,
+    "seen": 1789228252.5096223,
+    "ast_hash": "09983b38ca2d2328a06ea024095c08c6",
+    "semantic_hash": "09983b38ca2d2328a06ea024095c08c6"
+  },
+  "KiosquitodoApp/src/app.html": {
+    "mtime": 1789195220.2658832,
+    "seen": 1789228252.5096233,
+    "ast_hash": "3d57b4b88f943a240acfcdc7af910a4f",
+    "semantic_hash": "3d57b4b88f943a240acfcdc7af910a4f"
+  },
+  "README.md": {
+    "mtime": 1789195220.284895,
+    "seen": 1789228252.5096242,
+    "ast_hash": "05f9d034b05001322dd00e2933ea7a07",
+    "semantic_hash": "05f9d034b05001322dd00e2933ea7a07"
+  },
+  "SPEC.md": {
+    "mtime": 1789195220.285893,
+    "seen": 1789228252.5096252,
+    "ast_hash": "cf21117a0d4ba0bdad9b676a5075dc8e",
+    "semantic_hash": "cf21117a0d4ba0bdad9b676a5075dc8e"
+  },
+  "KiosquitodoApp/src-tauri/icons/128x128.png": {
+    "mtime": 1789195220.2358832,
+    "seen": 1789228252.509626,
+    "ast_hash": "4b69cd570e4257997c9e6546e76942af",
+    "semantic_hash": "4b69cd570e4257997c9e6546e76942af"
+  },
+  "KiosquitodoApp/src-tauri/icons/128x128@2x.png": {
+    "mtime": 1789195220.2368927,
+    "seen": 1789228252.5096266,
+    "ast_hash": "61db36cdd75fe9487181f85ce4171250",
+    "semantic_hash": "61db36cdd75fe9487181f85ce4171250"
+  },
+  "KiosquitodoApp/src-tauri/icons/32x32.png": {
+    "mtime": 1789195220.2368927,
+    "seen": 1789228252.5096276,
+    "ast_hash": "3ce1f218e6e1ccae264e1cb32ad31e73",
+    "semantic_hash": "3ce1f218e6e1ccae264e1cb32ad31e73"
+  },
+  "diagramas/flujo_escaner_barras.png": {
+    "mtime": 1789195220.2918894,
+    "seen": 1789228252.5096285,
+    "ast_hash": "8ddf96b7106479b0ca99ee9bea2a1a88",
+    "semantic_hash": "8ddf96b7106479b0ca99ee9bea2a1a88"
+  },
+  "diagramas/stack_tecnico_kiosco.png": {
+    "mtime": 1789195220.2998888,
+    "seen": 1789228252.5096295,
+    "ast_hash": "662f0a5a79a93ff7008072d80f90df9d",
+    "semantic_hash": "662f0a5a79a93ff7008072d80f90df9d"
+  }
+}

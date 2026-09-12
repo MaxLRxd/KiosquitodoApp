@@ -23,6 +23,22 @@ export interface Categoria {
 	color: string | null;
 }
 
+export interface CategoriaNueva {
+	nombre: string;
+	color?: string | null;
+}
+
+/** Comando de alta de producto (espejo de `NuevoProducto` en Rust). */
+export interface NuevoProducto {
+	nombre: string;
+	barcode: string | null;
+	precio_venta: number; // centavos
+	precio_costo: number | null; // centavos
+	stock_inicial: number;
+	stock_minimo: number;
+	categoria_id: number | null;
+}
+
 export interface ItemVenta {
 	producto_id: number;
 	cantidad: number;
@@ -48,4 +64,13 @@ export interface MpPago {
 	monto: number; // centavos
 	descripcion: string | null;
 	venta_id: number | null;
+}
+
+/** Comando de entrada para registrar una venta (espejo de `NuevaVenta` en Rust). */
+export interface NuevaVenta {
+	items: ItemVenta[];
+	medio_pago: MedioPago;
+	monto_efectivo: number; // centavos
+	monto_mp: number; // centavos
+	descripcion_mp?: string | null;
 }

@@ -1,6 +1,6 @@
 //! Implementación SQLite del repositorio de ventas, ítems y devoluciones.
 
-use crate::domain::venta::{MedioPago, NuevaVenta, Venta, VentaItem};
+use crate::domain::venta::{DevolucionRegistrada, MedioPago, NuevaVenta, Venta, VentaItem};
 use crate::errors::{AppError, AppResult};
 use crate::infrastructure::db::DbConn;
 use crate::ports::venta_repo::VentaRepo;
@@ -239,6 +239,48 @@ impl VentaRepo for VentaSqlite {
 
         tx.commit()?;
         Ok(())
+    }
+
+    fn listar_devoluciones(&self) -> AppResult<Vec<DevolucionRegistrada>> {
+        let conn = self.db.conn.lock().expect("lock");
+        let mut stmt = conn.prepare(
+            "SELECT id, venta_id, fecha, motivo FROM devoluciones \
+             ORDER BY fecha DESC, id DESC",
+        )?;
+        let cabeceras = stmt
+            .query_map([], |row| {
+                Ok(DevolucionRegistrada {
+                    id: row.get(0)?,
+                    venta_id: row.get(1)?,
+                    fecha: row.get(2)?,
+                    motivo: row.get(3)?,
+                    items: Vec::new(),
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        drop(stmt);
+        drop(conn);
+
+        let mut devoluciones = cabeceras;
+        for d in devoluciones.iter_mut() {
+            let ids = d.id;
+            let conn = self.db.conn.lock().expect("lock");
+            let mut items_stmt = conn.prepare(
+                "SELECT producto_id, cantidad, monto_devuelto \
+                 FROM devolucion_items WHERE devolucion_id = ?1 ORDER BY id",
+            )?;
+            d.items = items_stmt
+                .query_map(params![ids], |row| {
+                    Ok(VentaItem {
+                        producto_id: row.get(0)?,
+                        cantidad: row.get(1)?,
+                        precio_unitario: row.get(2)?,
+                    })
+                })?
+                .collect::<Result<Vec<_>, _>>()?;
+        }
+        Ok(devoluciones)
     }
 }
 

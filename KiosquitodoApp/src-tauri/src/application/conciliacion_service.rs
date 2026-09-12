@@ -276,6 +276,10 @@ mod tests {
         ) -> AppResult<()> {
             unreachable!("no se usa en estos tests")
         }
+
+        fn listar_devoluciones(&self) -> AppResult<Vec<crate::domain::venta::DevolucionRegistrada>> {
+            unreachable!("no se usa en estos tests")
+        }
     }
 
     // ── Helpers ───────────────────────────────────────────────────────

@@ -48,12 +48,12 @@ impl<R: ProductoRepo> ProductoService<R> {
     ) -> AppResult<Vec<Producto>> {
         if pagina < 1 {
             return Err(AppError::negocio(
-                "El nÃºmero de pÃ¡gina debe ser mayor o igual a uno",
+                "El número de página debe ser mayor o igual a uno",
             ));
         }
         if tam_pagina < 1 {
             return Err(AppError::negocio(
-                "El tamaÃ±o de pÃ¡gina debe ser mayor a cero",
+                "El tamaño de página debe ser mayor a cero",
             ));
         }
         let offset = (pagina - 1) * tam_pagina;
@@ -100,10 +100,10 @@ impl<R: ProductoRepo> ProductoService<R> {
 /// Valida un `Producto` existente (mismas reglas que `validar_nuevo_producto`).
 fn validar_producto_actualizado(p: &Producto) -> AppResult<()> {
     if p.nombre.trim().is_empty() {
-        return Err(AppError::negocio("El nombre del producto no puede estar vacÃ­o"));
+        return Err(AppError::negocio("El nombre del producto no puede estar vacío"));
     }
     if !validar_barcode(p.barcode.as_deref().unwrap_or("")) {
-        return Err(AppError::negocio("El cÃ³digo de barras debe tener 8, 12 o 13 dÃ­gitos"));
+        return Err(AppError::negocio("El código de barras debe tener 8, 12 o 13 dígitos"));
     }
     if !validar_precio(p.precio_venta) {
         return Err(AppError::negocio("El precio de venta debe ser mayor a cero (centavos)"));
@@ -115,7 +115,7 @@ fn validar_producto_actualizado(p: &Producto) -> AppResult<()> {
         return Err(AppError::negocio("El stock no puede ser negativo"));
     }
     if !validar_stock_minimo(p.stock_minimo) {
-        return Err(AppError::negocio("El stock mÃ­nimo no puede ser negativo"));
+        return Err(AppError::negocio("El stock mínimo no puede ser negativo"));
     }
     Ok(())
 }
@@ -225,7 +225,7 @@ mod tests {
                 .any(|p| p.barcode == nuevo.barcode);
             if dup {
                 return Err(AppError::negocio(
-                    "Ya existe un producto con ese cÃ³digo de barras",
+                    "Ya existe un producto con ese código de barras",
                 ));
             }
             let mut sig = self.siguiente_id.lock().unwrap();
@@ -329,7 +329,7 @@ mod tests {
         let svc = MockProductoRepo::nuevo_del_service();
         svc.crear_producto(&nuevo_valido()).unwrap();
         let err = svc.crear_producto(&nuevo_valido()).unwrap_err();
-        assert!(matches!(err, AppError::Negocio(ref m) if m.contains("cÃ³digo de barras")));
+        assert!(matches!(err, AppError::Negocio(ref m) if m.contains("código de barras")));
     }
 
     #[test]

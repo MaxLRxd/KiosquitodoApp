@@ -1,5 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { isTauri } from '@tauri-apps/api/core';
+	import { save } from '@tauri-apps/plugin-dialog';
+	import { writeTextFile } from '@tauri-apps/plugin-fs';
 	import { cerrarCaja, exportarCierresCsv, listarCierres, resumenDiario } from '$lib/api';
 	import { notificar } from '$lib/stores/app.svelte';
 	import { reproducirSonido } from '$lib/utils/sonido';
@@ -60,14 +63,24 @@
 	async function exportarCsv(): Promise<void> {
 		try {
 			const csv = await exportarCierresCsv(rangoDesde.trim(), rangoHasta.trim());
-			// TODO fase integración: en Tauri usar plugin-fs/plugin-dialog para guardar.
-			const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
-			const url = URL.createObjectURL(blob);
-			const enlace = document.createElement('a');
-			enlace.href = url;
-			enlace.download = `cierres_${rangoDesde || 'inicio'}_${rangoHasta || 'hoy'}.csv`;
-			enlace.click();
-			URL.revokeObjectURL(url);
+			const nombre = `cierres_${rangoDesde || 'inicio'}_${rangoHasta || 'hoy'}.csv`;
+
+			if (isTauri()) {
+				const ruta = await save({
+					defaultPath: nombre,
+					filters: [{ name: 'CSV', extensions: ['csv'] }]
+				});
+				if (!ruta) return; // usuario canceló el diálogo
+				await writeTextFile(ruta, '\uFEFF' + csv);
+			} else {
+				const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
+				const url = URL.createObjectURL(blob);
+				const enlace = document.createElement('a');
+				enlace.href = url;
+				enlace.download = nombre;
+				enlace.click();
+				URL.revokeObjectURL(url);
+			}
 			notificar('Historial de cierres exportado a CSV', 'success');
 		} catch (e) {
 			notificar((e as Error).message, 'error', true);

@@ -1,6 +1,16 @@
 export type TipoSonido = 'scan_ok' | 'scan_error' | 'venta_ok' | 'sistema_error';
 
-// TODO fase UI: reproducir los .wav de /static/sounds vía HTML5 Audio (no-op temporal).
-export function reproducirSonido(_tipo: TipoSonido): void {
-	// sin implementación en esta fase
+const RUTA: Record<TipoSonido, string> = {
+	scan_ok: '/sounds/scan_ok.wav',
+	scan_error: '/sounds/scan_error.wav',
+	venta_ok: '/sounds/venta_ok.wav',
+	sistema_error: '/sounds/sistema_error.wav'
+};
+
+export function reproducirSonido(tipo: TipoSonido): void {
+	try {
+		void new Audio(RUTA[tipo]).play();
+	} catch {
+		// sin audio disponible no debe romper el flujo
+	}
 }

@@ -5,7 +5,6 @@ use crate::domain::cierre::ResumenCierre;
 use crate::ports::cierre_repo::CierrePersistido;
 use crate::infrastructure::db::DbConn;
 use crate::infrastructure::db::repos::CierreSqlite;
-use crate::ports::cierre_repo::CierreRepo;
 use tauri::State;
 
 /// Calcula el resumen del día sin persistir (previsualización del cierre).

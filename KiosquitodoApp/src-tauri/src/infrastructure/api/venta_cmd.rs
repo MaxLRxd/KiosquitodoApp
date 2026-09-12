@@ -1,10 +1,9 @@
 //! Commands Tauri del módulo de ventas (POS local, R9).
 
 use crate::application::venta_service::VentaService;
-use crate::domain::venta::{NuevaVenta, Venta, VentaItem};
+use crate::domain::venta::{DevolucionRegistrada, NuevaVenta, Venta, VentaItem};
 use crate::infrastructure::db::{DbConn, repos::{VentaSqlite, ProductoSqlite}};
 use crate::ports::venta_repo::VentaRepo;
-use crate::ports::producto_repo::ProductoRepo;
 use tauri::State;
 
 /// Registra una venta descontando stock y validando el medio de pago (R9).
@@ -53,4 +52,11 @@ pub fn registrar_devolucion(
     VentaService::new(venta_repo, producto_repo)
         .registrar_devolucion(venta_id, &items, motivo.as_deref())
         .map_err(|e| e.to_string())
+}
+
+/// Lista las devoluciones registradas, más recientes primero.
+#[tauri::command]
+pub fn listar_devoluciones(db: State<'_, DbConn>) -> Result<Vec<DevolucionRegistrada>, String> {
+    let venta_repo = VentaSqlite::new(db.inner().clone());
+    venta_repo.listar_devoluciones().map_err(|e| e.to_string())
 }

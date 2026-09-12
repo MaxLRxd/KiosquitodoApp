@@ -1,6 +1,6 @@
 //! Trait del repositorio de ventas, ítems y devoluciones.
 
-use crate::domain::venta::{NuevaVenta, Venta, VentaItem};
+use crate::domain::venta::{DevolucionRegistrada, NuevaVenta, Venta, VentaItem};
 use crate::errors::AppResult;
 
 /// Contrato de persistencia del agregado `Venta` y sus devoluciones.
@@ -27,4 +27,7 @@ pub trait VentaRepo: Send + Sync {
         items: &[VentaItem],
         motivo: Option<&str>,
     ) -> AppResult<()>;
+
+    /// Lista las devoluciones registradas, más recientes primero, con sus ítems.
+    fn listar_devoluciones(&self) -> AppResult<Vec<DevolucionRegistrada>>;
 }

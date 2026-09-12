@@ -4,7 +4,7 @@ use crate::domain::cierre::ResumenCierre;
 use crate::errors::AppResult;
 
 /// Cierre persistido en la tabla `cierres_caja`.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct CierrePersistido {
     pub id: i64,
     pub fecha: String,

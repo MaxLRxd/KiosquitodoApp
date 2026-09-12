@@ -71,6 +71,18 @@ pub struct NuevaVenta {
     pub descripcion_mp: Option<String>,
 }
 
+/// Registro de devolución persistido (cabecera + ítems), espejo exacto del
+/// DTO `DevolucionRegistrada` del frontend.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DevolucionRegistrada {
+    pub id: i64,
+    pub venta_id: i64,
+    /// Fecha/hora local en que se registró la devolución.
+    pub fecha: String,
+    pub motivo: Option<String>,
+    pub items: Vec<VentaItem>,
+}
+
 /// Calcula el total de una venta en centavos: Σ cantidad × precio_unitario.
 pub fn calcular_total(items: &[VentaItem]) -> i64 {
     items.iter().map(VentaItem::subtotal).sum()

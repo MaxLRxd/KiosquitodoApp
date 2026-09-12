@@ -68,12 +68,12 @@ impl<V: VentaRepo, P: ProductoRepo> VentaService<V, P> {
         }
         if items.is_empty() {
             return Err(AppError::negocio(
-                "La devoluciÃ³n debe tener al menos un Ã­tem",
+                "La devolución debe tener al menos un ítem",
             ));
         }
         if items.iter().any(|i| i.cantidad <= 0) {
             return Err(AppError::negocio(
-                "La cantidad devuelta de cada Ã­tem debe ser mayor a cero",
+                "La cantidad devuelta de cada ítem debe ser mayor a cero",
             ));
         }
         self.venta_repo.crear_devolucion(venta_id, items, motivo)
@@ -279,6 +279,10 @@ mod tests {
             _motivo: Option<&str>,
         ) -> AppResult<()> {
             Ok(())
+        }
+
+        fn listar_devoluciones(&self) -> AppResult<Vec<crate::domain::venta::DevolucionRegistrada>> {
+            Ok(Vec::new())
         }
     }
 

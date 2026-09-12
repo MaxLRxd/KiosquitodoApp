@@ -5,13 +5,56 @@ pub mod errors;
 pub mod infrastructure;
 pub mod ports;
 
+use infrastructure::api::{
+    caja_cmd, config_cmd, producto_cmd, venta_cmd,
+};
+
+use infrastructure::db::DbConn;
+use tauri::Manager;
+
 pub fn run() {
     tauri::Builder::default()
-        .setup(|_app| {
-            // Fase futura: init_logging, backup diario, autostart y bloqueo por PIN.
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            None,
+        ))
+        .setup(|app| {
+            let cfg = config::AppConfig::resolver()
+                .map_err(|e| Box::<dyn std::error::Error>::from(e.to_string()))?;
+
+            let db = DbConn::abrir(&cfg.db_path)
+                .map_err(|e| Box::<dyn std::error::Error>::from(e.to_string()))?;
+            app.manage(db);
+
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![])
+        .invoke_handler(tauri::generate_handler![
+            producto_cmd::crear_producto,
+            producto_cmd::listar_productos,
+            producto_cmd::buscar_producto_por_barcode,
+            producto_cmd::actualizar_producto,
+            producto_cmd::eliminar_producto,
+            producto_cmd::ajustar_stock,
+            producto_cmd::listar_categorias,
+            producto_cmd::crear_categoria,
+            venta_cmd::registrar_venta,
+            venta_cmd::obtener_venta,
+            venta_cmd::listar_ventas_dia,
+            venta_cmd::registrar_devolucion,
+            venta_cmd::listar_devoluciones,
+            caja_cmd::resumen_diario,
+            caja_cmd::cerrar_caja,
+            caja_cmd::listar_cierres,
+            caja_cmd::exportar_cierres_csv,
+            config_cmd::obtener_rutas,
+            config_cmd::autostart_estado,
+            config_cmd::habilitar_autostart,
+            config_cmd::deshabilitar_autostart,
+            config_cmd::crear_backup_manual,
+            config_cmd::limpiar_backups_viejos,
+        ])
         .run(tauri::generate_context!())
         .expect("error al iniciar la aplicación Tauri");
 }

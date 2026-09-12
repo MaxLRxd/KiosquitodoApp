@@ -1,6 +1,6 @@
 //! Trait del repositorio de productos y categorías.
 
-use crate::domain::producto::{NuevoProducto, Producto};
+use crate::domain::producto::{Categoria, NuevoProducto, Producto};
 use crate::errors::AppResult;
 
 /// Contrato de persistencia para el inventario.
@@ -46,4 +46,14 @@ pub trait ProductoRepo: Send + Sync {
     /// Devuelve los `(producto_id, precio_costo)` de un conjunto de productos
     /// (para el cálculo de margen bruto).
     fn costos_de_productos(&self, ids: &[i64]) -> AppResult<Vec<(i64, i64)>>;
+}
+
+/// Contrato de persistencia para las categorías. Vive aparte para que los
+/// mocks de venta/producto tests no tengan que implementar métodos extra.
+pub trait CategoriaRepo: Send + Sync {
+    /// Lista todas las categorías, ordenadas por nombre.
+    fn listar_categorias(&self) -> AppResult<Vec<Categoria>>;
+
+    /// Crea una categoría (nombre único) y devuelve la persistida.
+    fn crear_categoria(&self, nombre: &str, color: Option<&str>) -> AppResult<Categoria>;
 }

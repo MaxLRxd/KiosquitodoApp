@@ -3,12 +3,9 @@
 //! DIFERIDA por decisiÃ³n del equipo (P16 sin MP).
 
 use crate::config::AppConfig;
-use crate::errors::{AppError, AppResult};
 use crate::infrastructure::db::DbConn;
 use crate::infrastructure::system::{autostart, backup};
-use crate::ports::config_repo::ConfigRepo;
 use serde::Serialize;
-use std::path::PathBuf;
 use tauri::{AppHandle, State};
 
 /// DTO con las rutas resueltas (data, backups, logs y BD).
@@ -35,7 +32,7 @@ impl From<AppConfig> for RutasApp {
 /// Devuelve las rutas del sistema para el frontend (aprox. `/actuator/env`).
 #[tauri::command]
 pub fn obtener_rutas() -> Result<RutasApp, String> {
-    let cfg = AppConfig::resolver()?;
+    let cfg = AppConfig::resolver().map_err(|e| e.to_string())?;
     Ok(cfg.into())
 }
 
@@ -60,7 +57,7 @@ pub fn deshabilitar_autostart(app: AppHandle) -> Result<(), String> {
 /// Crea un backup manual (VACUUM INTO) y devuelve la ruta generada.
 #[tauri::command]
 pub fn crear_backup_manual(db: State<'_, DbConn>) -> Result<String, String> {
-    let cfg = AppConfig::resolver()?;
+    let cfg = AppConfig::resolver().map_err(|e| e.to_string())?;
     let ruta = backup::crear_backup(db.inner(), &cfg.backup_dir)
         .map_err(|e| e.to_string())?;
     Ok(ruta.to_string_lossy().into_owned())
@@ -69,7 +66,7 @@ pub fn crear_backup_manual(db: State<'_, DbConn>) -> Result<String, String> {
 /// Elimina backups mÃ¡s viejos que `retencion_dias`; devuelve cuÃ¡ntos borrÃ³.
 #[tauri::command]
 pub fn limpiar_backups_viejos(retencion_dias: u32) -> Result<usize, String> {
-    let cfg = AppConfig::resolver()?;
+    let cfg = AppConfig::resolver().map_err(|e| e.to_string())?;
     backup::limpiar_backups_viejos(&cfg.backup_dir, retencion_dias)
         .map_err(|e| e.to_string())
 }

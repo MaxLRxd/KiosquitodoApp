@@ -2,5 +2,22 @@
   "identifier": "default",
   "description": "Permisos base para la ventana principal",
   "windows": ["principal"],
-  "permissions": ["core:default"]
+  "permissions": [
+    "core:default",
+    "dialog:default",
+    {
+      "identifier": "fs:allow-write-file",
+      "allow": [
+        {
+          "path": "**"
+        }
+      ]
+    },
+    {
+      "identifier": "fs:scope",
+      "allow": [
+        "**"
+      ]
+    }
+  ]
 }

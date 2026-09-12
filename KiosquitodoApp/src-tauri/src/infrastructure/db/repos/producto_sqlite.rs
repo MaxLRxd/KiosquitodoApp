@@ -1,9 +1,9 @@
 //! Implementación SQLite del repositorio de productos.
 
-use crate::domain::producto::{NuevoProducto, Producto};
+use crate::domain::producto::{Categoria, NuevoProducto, Producto};
 use crate::errors::{AppError, AppResult};
 use crate::infrastructure::db::DbConn;
-use crate::ports::producto_repo::ProductoRepo;
+use crate::ports::producto_repo::{CategoriaRepo, ProductoRepo};
 use rusqlite::{params, OptionalExtension, Row};
 
 /// Convierte una fila SQLite a `Producto`.
@@ -224,6 +224,47 @@ impl ProductoRepo for ProductoSqlite {
         })?;
         let costos = rows.collect::<Result<Vec<_>, _>>()?;
         Ok(costos)
+    }
+}
+
+impl CategoriaRepo for ProductoSqlite {
+    fn listar_categorias(&self) -> AppResult<Vec<Categoria>> {
+        let conn = self.db.conn.lock().expect("mutex de BD envenenado");
+        let mut stmt = conn.prepare(
+            "SELECT id, nombre, color FROM categorias ORDER BY nombre",
+        )?;
+        let categorias = stmt
+            .query_map([], |row| {
+                Ok(Categoria {
+                    id: row.get(0)?,
+                    nombre: row.get(1)?,
+                    color: row.get(2)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(categorias)
+    }
+
+    fn crear_categoria(&self, nombre: &str, color: Option<&str>) -> AppResult<Categoria> {
+        let conn = self.db.conn.lock().expect("mutex de BD envenenado");
+        conn.execute(
+            "INSERT INTO categorias (nombre, color) VALUES (?1, ?2)",
+            params![nombre.trim(), color],
+        )
+        .map_err(|e| match e {
+            rusqlite::Error::SqliteFailure(e, _)
+                if e.code == rusqlite::ErrorCode::ConstraintViolation =>
+            {
+                AppError::from("Ya existe una categoría con ese nombre".to_string())
+            }
+            otros => AppError::from(otros),
+        })?;
+        let id = conn.last_insert_rowid();
+        Ok(Categoria {
+            id,
+            nombre: nombre.trim().to_string(),
+            color: color.map(str::to_string),
+        })
     }
 }
 

@@ -219,10 +219,6 @@ mod tests {
         fn aplicar_matching_automatico(&self) -> AppResult<usize> {
             Ok(0)
         }
-
-        fn existe_pago(&self, mp_id: &str) -> AppResult<bool> {
-            Ok(self.pagos.lock().unwrap().iter().any(|p| p.mp_id == mp_id))
-        }
     }
 
     #[derive(Default)]

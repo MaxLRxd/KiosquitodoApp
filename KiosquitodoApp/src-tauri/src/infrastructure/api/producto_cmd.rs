@@ -1,4 +1,4 @@
-﻿//! Comandos Tauri del mÃ³dulo inventario (productos y stock).
+﻿//! Comandos Tauri del módulo inventario (productos y stock).
 //!
 //! Cada command es un envoltorio fino: resuelve el repo SQLite desde el
 //! `DbConn` compartido, construye el servicio y delega. Los errores se
@@ -23,7 +23,7 @@ pub fn crear_producto(
         .map_err(|e| e.to_string())
 }
 
-/// Lista productos con filtro de texto, categorÃ­a y paginaciÃ³n.
+/// Lista productos con filtro de texto, categoría y paginación.
 #[tauri::command]
 pub fn listar_productos(
     db: State<'_, DbConn>,
@@ -48,7 +48,7 @@ fn traducir_paginacion(offset: i64, limite: i64) -> (i64, i64) {
     (pagina, tam_pagina)
 }
 
-/// Busca un producto por cÃ³digo de barras (para el POS).
+/// Busca un producto por código de barras (para el POS).
 #[tauri::command]
 pub fn buscar_producto_por_barcode(
     db: State<'_, DbConn>,
@@ -72,7 +72,7 @@ pub fn actualizar_producto(
         .map_err(|e| e.to_string())
 }
 
-/// Baja lÃ³gica de un producto.
+/// Baja lógica de un producto.
 #[tauri::command]
 pub fn eliminar_producto(db: State<'_, DbConn>, id: i64) -> Result<(), String> {
     let repo = ProductoSqlite::new(db.inner().clone());

@@ -22,7 +22,4 @@ pub trait PagoRepo: Send + Sync {
     /// Matching automático (R7): vincula los pagos huérfanos con ventas MP de
     /// monto ±100 centavos dentro de ±10 minutos. Devuelve cuántos se vincularon.
     fn aplicar_matching_automatico(&self) -> AppResult<usize>;
-
-    /// Verifica si un pago ya existe (para decidir si mostrar "nuevo").
-    fn existe_pago(&self, mp_id: &str) -> AppResult<bool>;
 }

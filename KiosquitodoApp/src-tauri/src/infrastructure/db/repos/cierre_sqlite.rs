@@ -259,7 +259,7 @@ mod tests {
                 id: 0,
                 mp_id: "delta_test".to_string(),
                 fecha_aprobacion: Some(
-                    chrono::Local::now().format("%Y-%m-%dT%H:%M:%S.000-03:00").to_string(),
+                    chrono::Local::now().format("%Y-%m-%dT%H:%M:%S").to_string(),
                 ),
                 monto: 1500,
                 descripcion: None,

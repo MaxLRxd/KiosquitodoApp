@@ -239,15 +239,17 @@ export function mockCrearProducto(nuevo: NuevoProducto): Producto {
 
 /**
  * `actualizar_producto(producto)`: reemplaza los campos editables del producto.
- * Nota: el repo Rust actual tiene un bug conocido (no persiste `stock` en el
- * UPDATE). El mock sigue el contrato del servicio: el stock se conserva.
+ * El stock NO se edita aquí (solo por «Ajustar stock», flujo auditado en
+ * `movimientos_stock`); se conserva el valor actual, igual que el repo Rust
+ * cuyo UPDATE no toca la columna `stock`.
  */
 export function mockActualizarProducto(producto: Producto): void {
 	const error = validarProductoActualizado(producto);
 	if (error) throw new Error(error);
 	const indice = tiendaMock.productos.findIndex((p) => p.id === producto.id);
 	if (indice === -1) throw new Error('El producto no existe');
-	tiendaMock.productos[indice] = { ...tiendaMock.productos[indice], ...producto };
+	const actual = tiendaMock.productos[indice];
+	tiendaMock.productos[indice] = { ...actual, ...producto, stock: actual.stock };
 }
 
 /** `eliminar_producto(id)`: baja lógica (activo = false), conserva historial. */

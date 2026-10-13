@@ -1,9 +1,9 @@
-﻿//! Casos de uso de POS: registrar venta (validaciÃ³n de stock y medios mixtos)
+﻿//! Casos de uso de POS: registrar venta (validación de stock y medios mixtos)
 //! y devoluciones.
 //!
 //! El servicio valida la coherencia del pedido (dominio) y que exista stock
-//! antes de pedirle la transacciÃ³n atÃ³mica al `VentaRepo`. La garantÃ­a final
-//! de consistencia (R9) la impone el repo dentro de su transacciÃ³n.
+//! antes de pedirle la transacción atómica al `VentaRepo`. La garantía final
+//! de consistencia (R9) la impone el repo dentro de su transacción.
 
 use crate::domain::venta::{calcular_total, validar_venta, NuevaVenta, Venta, VentaItem};
 use crate::errors::{AppError, AppResult};
@@ -26,7 +26,7 @@ impl<V: VentaRepo, P: ProductoRepo> VentaService<V, P> {
     }
 
     /// Registra una venta: valida reglas del dominio, verifica stock y delega
-    /// la transacciÃ³n atÃ³mica (cabecera + Ã­tems + descuento de stock).
+    /// la transacción atómica (cabecera + ítems + descuento de stock).
     pub fn registrar_venta(&self, venta: &NuevaVenta) -> AppResult<Venta> {
         validar_venta(
             &venta.items,
@@ -40,23 +40,23 @@ impl<V: VentaRepo, P: ProductoRepo> VentaService<V, P> {
         self.venta_repo.crear_venta_transaccional(venta)
     }
 
-    /// Obtiene una venta completa (con Ã­tems) por id.
+    /// Obtiene una venta completa (con ítems) por id.
     pub fn obtener_venta(&self, id: i64) -> AppResult<Option<Venta>> {
         self.venta_repo.obtener_venta(id)
     }
 
-    /// Lista las ventas de un dÃ­a (`YYYY-MM-DD`), mÃ¡s recientes primero.
+    /// Lista las ventas de un día (`YYYY-MM-DD`), más recientes primero.
     pub fn listar_ventas_dia(&self, fecha: &str) -> AppResult<Vec<Venta>> {
         self.venta_repo.listar_ventas_dia(fecha)
     }
 
-    /// Obtiene los Ã­tems de una venta.
+    /// Obtiene los ítems de una venta.
     pub fn obtener_items_venta(&self, venta_id: i64) -> AppResult<Vec<VentaItem>> {
         self.venta_repo.obtener_items_venta(venta_id)
     }
 
-    /// Registra una devoluciÃ³n sobre una venta. Recupera el stock de los
-    /// Ã­tems devueltos (transaccional en el repo).
+    /// Registra una devolución sobre una venta. Recupera el stock de los
+    /// ítems devueltos (transaccional en el repo).
     pub fn registrar_devolucion(
         &self,
         venta_id: i64,
@@ -79,8 +79,8 @@ impl<V: VentaRepo, P: ProductoRepo> VentaService<V, P> {
         self.venta_repo.crear_devolucion(venta_id, items, motivo)
     }
 
-    /// Verifica que exista stock suficiente para cada Ã­tem. Es una validaciÃ³n
-    /// temprana (UX), la transacciÃ³n del repo sigue siendo la barrera final.
+    /// Verifica que exista stock suficiente para cada ítem. Es una validación
+    /// temprana (UX), la transacción del repo sigue siendo la barrera final.
     fn verificar_stock(&self, items: &[VentaItem]) -> AppResult<()> {
         for item in items {
             let producto = self
@@ -97,13 +97,13 @@ impl<V: VentaRepo, P: ProductoRepo> VentaService<V, P> {
         Ok(())
     }
 
-    /// Recalcula el total desde los Ã­tems (consistencia entre DTO y dominio).
+    /// Recalcula el total desde los ítems (consistencia entre DTO y dominio).
     pub fn total_venta(&self, items: &[VentaItem]) -> i64 {
         calcular_total(items)
     }
 }
 
-// â”€â”€ Tests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Tests ────────────────────────────────────────────────────────────
 
 #[cfg(test)]
 mod tests {
@@ -113,7 +113,7 @@ mod tests {
     use crate::ports::producto_repo::ProductoRepo;
     use std::sync::{Arc, Mutex};
 
-    /// Mock del repo de productos (mÃ­nimo: id, stock y bÃºsqueda por id).
+    /// Mock del repo de productos (mínimo: id, stock y búsqueda por id).
     struct MockProductos {
         productos: Mutex<Vec<Producto>>,
         siguiente_id: Mutex<i64>,
@@ -212,7 +212,7 @@ mod tests {
     }
 
     /// Mock del repo de ventas: guarda ventas en memoria y descuenta stock
-    /// del mock de productos (misma garantÃ­a R9 que el repo real).
+    /// del mock de productos (misma garantía R9 que el repo real).
     struct MockVentas {
         ventas: Mutex<Vec<Venta>>,
         siguiente_id: Mutex<i64>,

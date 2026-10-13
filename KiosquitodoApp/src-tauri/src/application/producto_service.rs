@@ -1,7 +1,7 @@
-﻿//! Casos de uso de inventario: CRUD, bÃºsqueda, paginaciÃ³n y ajuste de stock.
+﻿//! Casos de uso de inventario: CRUD, búsqueda, paginación y ajuste de stock.
 //!
-//! El servicio orquesta la lÃ³gica pura del dominio (validaciones) y delega la
-//! persistencia al `ProductoRepo` (inversiÃ³n de dependencias, capa hexagonal).
+//! El servicio orquesta la lógica pura del dominio (validaciones) y delega la
+//! persistencia al `ProductoRepo` (inversión de dependencias, capa hexagonal).
 
 use crate::domain::producto::{
     validar_barcode, validar_costo, validar_nuevo_producto, validar_precio, validar_stock,
@@ -10,8 +10,8 @@ use crate::domain::producto::{
 use crate::errors::{AppError, AppResult};
 use crate::ports::producto_repo::ProductoRepo;
 
-/// Casos de uso de inventario. GenÃ©rico sobre el trait para poder inyectar
-/// el repo SQLite en producciÃ³n y un mock en los tests.
+/// Casos de uso de inventario. Genérico sobre el trait para poder inyectar
+/// el repo SQLite en producción y un mock en los tests.
 pub struct ProductoService<R: ProductoRepo> {
     repo: R,
 }
@@ -27,12 +27,12 @@ impl<R: ProductoRepo> ProductoService<R> {
         self.repo.crear_producto(nuevo)
     }
 
-    /// Busca por cÃ³digo de barras exacto. `None` si no existe o estÃ¡ inactivo.
+    /// Busca por código de barras exacto. `None` si no existe o está inactivo.
     pub fn buscar_por_barcode(&self, barcode: &str) -> AppResult<Option<Producto>> {
         self.repo.buscar_por_barcode(barcode)
     }
 
-    /// Busca por id. `None` si no existe o estÃ¡ inactivo.
+    /// Busca por id. `None` si no existe o está inactivo.
     pub fn buscar_por_id(&self, id: i64) -> AppResult<Option<Producto>> {
         self.repo.buscar_por_id(id)
     }
@@ -61,14 +61,14 @@ impl<R: ProductoRepo> ProductoService<R> {
             .listar_productos(filtro, categoria_id, tam_pagina, offset)
     }
 
-    /// Actualiza campos editables (nombre, precios, stock, categorÃ­a).
-    /// El id y la baja lÃ³gica no se tocan.
+    /// Actualiza campos editables (nombre, precios, stock, categoría).
+    /// El id y la baja lógica no se tocan.
     pub fn actualizar_producto(&self, producto: &Producto) -> AppResult<()> {
         validar_producto_actualizado(producto)?;
         self.repo.actualizar_producto(producto)
     }
 
-    /// Baja lÃ³gica: inactiva el producto para no perder historial de ventas.
+    /// Baja lógica: inactiva el producto para no perder historial de ventas.
     pub fn eliminar_producto(&self, id: i64) -> AppResult<()> {
         self.repo.eliminar_producto(id)
     }
@@ -120,15 +120,15 @@ fn validar_producto_actualizado(p: &Producto) -> AppResult<()> {
     Ok(())
 }
 
-// â”€â”€ Tests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Tests ────────────────────────────────────────────────────────────
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::sync::Mutex;
 
-    /// Mock del repo en memoria que replica las invariantes mÃ­nimas de
-    /// `producto_sqlite` (id autoincremental, barcode Ãºnico, baja lÃ³gica).
+    /// Mock del repo en memoria que replica las invariantes mínimas de
+    /// `producto_sqlite` (id autoincremental, barcode único, baja lógica).
     struct MockProductoRepo {
         productos: Mutex<Vec<Producto>>,
         siguiente_id: Mutex<i64>,

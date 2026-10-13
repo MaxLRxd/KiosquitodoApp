@@ -4,6 +4,7 @@
 //! Módulo **puro**: la conversión de decimales (API) a centavos y el filtro de
 //! elegibilidad ocurren aquí, a la entrada del sistema.
 
+use chrono::{DateTime, NaiveDateTime};
 use serde::{Deserialize, Serialize};
 
 /// Pago importado de la API de Mercado Pago. `monto` siempre en centavos.
@@ -16,7 +17,11 @@ pub struct PagoMp {
     pub id: i64,
     /// ID único del pago en MP (clave de idempotencia, R5).
     pub mp_id: String,
-    /// Timestamp ISO 8601 de aprobación (opcional si API no lo manda).
+    /// Timestamp de aprobación **normalizado a hora local naive**
+    /// (`YYYY-MM-DDTHH:MM:SS`, opcional si la API no lo manda).
+    ///
+    /// Se convierte desde el ISO 8601 con offset que devuelve MP (ver
+    /// [`normalizar_fecha_local`]) para que coincida con `ventas.hora`.
     pub fecha_aprobacion: Option<String>,
     /// Monto en centavos (`(transaction_amount * 100.0).round() as i64`, R6).
     pub monto: i64,
@@ -52,6 +57,31 @@ pub fn a_centavos(transaction_amount: f64) -> i64 {
     (transaction_amount * 100.0).round() as i64
 }
 
+/// Normaliza el timestamp de aprobación de MP (ISO 8601 con offset, ej.
+/// `2026-09-07T10:30:00.000-03:00`) al formato **local naive** que usa la
+/// columna `ventas.hora` (`YYYY-MM-DDTHH:MM:SS`).
+///
+/// Es crucial para el matching de conciliación (R7): sin normalizar, SQLite
+/// interpreta el texto con offset como UTC y la hora naive como local, y
+/// `strftime('%s', ...)` los compara desplazados por el offset de la zona
+/// (ej. −03:00 en Argentina). Se conserva el separador `T` para no romper las
+/// comparaciones de rango (`pagos_en_rango`).
+///
+/// Idempotente: una fecha ya normalizada se devuelve igual. Si el texto no se
+/// puede parsear, se devuelve sin cambios.
+pub fn normalizar_fecha_local(fecha: &str) -> String {
+    if let Ok(dt) = DateTime::parse_from_rfc3339(fecha) {
+        return dt
+            .with_timezone(&chrono::Local)
+            .format("%Y-%m-%dT%H:%M:%S")
+            .to_string();
+    }
+    if let Ok(naive) = NaiveDateTime::parse_from_str(fecha, "%Y-%m-%dT%H:%M:%S%.f") {
+        return naive.format("%Y-%m-%dT%H:%M:%S").to_string();
+    }
+    fecha.to_string()
+}
+
 /// Convierte y filtra una respuesta de la API en un `PagoMp` elegible.
 /// Devuelve `None` si el pago no cumple `approved` + `accredited`.
 pub fn desde_api(pago: MpPagoApi) -> Option<PagoMp> {
@@ -61,7 +91,7 @@ pub fn desde_api(pago: MpPagoApi) -> Option<PagoMp> {
     Some(PagoMp {
         id: 0,
         mp_id: pago.id.to_string(),
-        fecha_aprobacion: pago.date_approved,
+        fecha_aprobacion: pago.date_approved.as_deref().map(normalizar_fecha_local),
         monto: a_centavos(pago.transaction_amount),
         descripcion: pago.description,
         venta_id: None,
@@ -123,5 +153,25 @@ mod tests {
         let p = desde_api(api).unwrap();
         assert_eq!(p.descripcion, None);
         assert_eq!(p.fecha_aprobacion, None);
+    }
+
+    #[test]
+    fn normalizar_convierte_offset_a_local_naive() {
+        // El mismo instante con offsets distintos debe dar el mismo texto local.
+        let con_offset = normalizar_fecha_local("2026-09-07T10:30:00.000-03:00");
+        let en_utc = normalizar_fecha_local("2026-09-07T13:30:00.000+00:00");
+        assert_eq!(con_offset, en_utc);
+        // Formato `YYYY-MM-DDTHH:MM:SS` (19 chars, sin offset ni milisegundos).
+        assert_eq!(con_offset.len(), 19);
+        assert!(NaiveDateTime::parse_from_str(&con_offset, "%Y-%m-%dT%H:%M:%S").is_ok());
+    }
+
+    #[test]
+    fn normalizar_es_idempotente_y_tolera_texto_invalido() {
+        assert_eq!(
+            normalizar_fecha_local("2026-09-07T10:30:00"),
+            "2026-09-07T10:30:00"
+        );
+        assert_eq!(normalizar_fecha_local("no-es-fecha"), "no-es-fecha");
     }
 }

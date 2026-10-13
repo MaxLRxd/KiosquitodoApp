@@ -82,39 +82,59 @@ impl PagoRepo for PagoSqlite {
 
     /// R7: matching automático — vincula pagos huérfanos con ventas MP de
     /// monto ±100 centavos dentro de ±600 segundos (10 minutos).
+    ///
+    /// Se hace en Rust fila por fila para garantizar dos cosas que un único
+    /// `UPDATE` con subconsulta no asegura: (1) que una misma venta no quede
+    /// vinculada a dos pagos, y (2) un ganador determinista cuando varios
+    /// pagos compiten por la misma venta (el más cercano en tiempo; empate por
+    /// menor `id`).
     fn aplicar_matching_automatico(&self) -> AppResult<usize> {
         let conn = self.db.conn.lock().expect("lock");
-        let actualizados = conn.execute(
-            "UPDATE mp_pagos \
-             SET venta_id = ( \
-                 SELECT v.id FROM ventas v \
-                 WHERE v.medio_pago IN ('mercado_pago', 'mixto') \
-                   AND ABS(v.monto_mp - mp_pagos.monto) <= ?1 \
-                   AND ABS(strftime('%s', v.hora) - strftime('%s', mp_pagos.fecha_aprobacion)) <= ?2 \
-                 LIMIT 1 \
-             ) \
-             WHERE venta_id IS NULL \
-               AND ( \
-                 SELECT v.id FROM ventas v \
-                 WHERE v.medio_pago IN ('mercado_pago', 'mixto') \
-                   AND ABS(v.monto_mp - mp_pagos.monto) <= ?1 \
-                   AND ABS(strftime('%s', v.hora) - strftime('%s', mp_pagos.fecha_aprobacion)) <= ?2 \
-                 LIMIT 1 \
-               ) IS NOT NULL",
-            params![defaults::MATCHING_MONTO_TOLERANCIA, defaults::MATCHING_VENTANA_SEGUNDOS],
-        )?;
-        Ok(actualizados)
-    }
-
-    fn existe_pago(&self, mp_id: &str) -> AppResult<bool> {
-        let conn = self.db.conn.lock().expect("lock");
-        let existe: i32 = conn
-            .query_row(
-                "SELECT COUNT(*) FROM mp_pagos WHERE mp_id = ?1",
-                params![mp_id],
-                |r| r.get(0),
+        let huerfanos = {
+            let mut stmt = conn.prepare(
+                "SELECT id, monto, fecha_aprobacion FROM mp_pagos \
+                 WHERE venta_id IS NULL ORDER BY fecha_aprobacion ASC, id ASC",
             )?;
-        Ok(existe > 0)
+            let filas = stmt
+                .query_map([], |r| {
+                    Ok((
+                        r.get::<_, i64>(0)?,
+                        r.get::<_, i64>(1)?,
+                        r.get::<_, Option<String>>(2)?,
+                    ))
+                })?
+                .collect::<Result<Vec<_>, _>>()?;
+            filas
+        };
+
+        let mut vinculados = 0;
+        for (pago_id, monto, fecha) in huerfanos {
+            let venta_id: Option<i64> = conn
+                .query_row(
+                    "SELECT v.id FROM ventas v \
+                     WHERE v.medio_pago IN ('mercado_pago', 'mixto') \
+                       AND ABS(v.monto_mp - ?1) <= ?2 \
+                       AND ABS(strftime('%s', v.hora) - strftime('%s', ?3)) <= ?4 \
+                       AND v.id NOT IN (SELECT venta_id FROM mp_pagos WHERE venta_id IS NOT NULL) \
+                     ORDER BY ABS(strftime('%s', v.hora) - strftime('%s', ?3)) ASC, v.id ASC \
+                     LIMIT 1",
+                    params![
+                        monto,
+                        defaults::MATCHING_MONTO_TOLERANCIA,
+                        fecha,
+                        defaults::MATCHING_VENTANA_SEGUNDOS
+                    ],
+                    |r| r.get(0),
+                )
+                .optional()?;
+            if let Some(venta_id) = venta_id {
+                vinculados += conn.execute(
+                    "UPDATE mp_pagos SET venta_id = ?1 WHERE id = ?2 AND venta_id IS NULL",
+                    params![venta_id, pago_id],
+                )?;
+            }
+        }
+        Ok(vinculados)
     }
 }
 
@@ -149,7 +169,7 @@ mod tests {
         PagoMp {
             id: 0,
             mp_id: mp_id.to_string(),
-            fecha_aprobacion: Some("2026-09-07T10:30:00.000-03:00".to_string()),
+            fecha_aprobacion: Some("2026-09-07T10:30:00".to_string()),
             monto,
             descripcion: Some("Test".to_string()),
             venta_id: None,
@@ -162,14 +182,6 @@ mod tests {
         let p = pago("42", 1500);
         assert!(pagos.upsert_pago(&p).unwrap()); // inserta
         assert!(!pagos.upsert_pago(&p).unwrap()); // ignora duplicado
-    }
-
-    #[test]
-    fn existe_pago() {
-        let pagos = setup_pagos();
-        assert!(!pagos.existe_pago("42").unwrap());
-        pagos.upsert_pago(&pago("42", 1000)).unwrap();
-        assert!(pagos.existe_pago("42").unwrap());
     }
 
     #[test]
@@ -300,5 +312,69 @@ mod tests {
 
         let p = pagos.obtener_pago_por_mp_id("distant_01").unwrap().unwrap();
         assert_eq!(p.venta_id, None);
+    }
+
+    #[test]
+    fn matching_no_vincula_dos_pagos_a_la_misma_venta() {
+        let (pagos, ventas, productos) = setup_completo();
+        let pid = crear_producto_para_venta(&productos, "4444444444444");
+        let venta = crear_venta_mp(&ventas, pid, 1500);
+
+        for mp_id in ["dup_a", "dup_b"] {
+            pagos
+                .upsert_pago(&PagoMp {
+                    id: 0,
+                    mp_id: mp_id.to_string(),
+                    fecha_aprobacion: Some(venta.hora.clone()),
+                    monto: 1500,
+                    descripcion: None,
+                    venta_id: None,
+                })
+                .unwrap();
+        }
+
+        let vinculados = pagos.aplicar_matching_automatico().unwrap();
+        assert_eq!(vinculados, 1);
+
+        let a = pagos.obtener_pago_por_mp_id("dup_a").unwrap().unwrap();
+        let b = pagos.obtener_pago_por_mp_id("dup_b").unwrap().unwrap();
+        let total = u8::from(a.venta_id.is_some()) + u8::from(b.venta_id.is_some());
+        assert_eq!(total, 1);
+    }
+
+    #[test]
+    fn matching_normaliza_offset_de_la_api() {
+        use crate::domain::pago::{desde_api, MpPagoApi};
+        use chrono::{Local, NaiveDateTime, TimeZone};
+
+        let (pagos, ventas, productos) = setup_completo();
+        let pid = crear_producto_para_venta(&productos, "5555555555555");
+        let venta = crear_venta_mp(&ventas, pid, 1500);
+
+        // Mismo instante que `venta.hora` (naive local, `datetime()` usa espacio)
+        // pero expresado por la API en RFC3339 con el offset local del equipo
+        // (ej. −03:00). Sin la normalización de `desde_api`, `strftime('%s', ...)`
+        // los compara desplazados por el offset y el matching fallaría.
+        let naive = NaiveDateTime::parse_from_str(&venta.hora, "%Y-%m-%d %H:%M:%S")
+            .or_else(|_| NaiveDateTime::parse_from_str(&venta.hora, "%Y-%m-%dT%H:%M:%S"))
+            .unwrap();
+        let rfc3339 = Local.from_local_datetime(&naive).unwrap().to_rfc3339();
+        let pago = desde_api(MpPagoApi {
+            id: 777,
+            date_approved: Some(rfc3339),
+            transaction_amount: 15.00,
+            description: None,
+            status: "approved".to_string(),
+            status_detail: "accredited".to_string(),
+        })
+        .unwrap();
+        pagos.upsert_pago(&pago).unwrap();
+
+        let vinculados = pagos.aplicar_matching_automatico().unwrap();
+        assert_eq!(vinculados, 1);
+        assert_eq!(
+            pagos.obtener_pago_por_mp_id("777").unwrap().unwrap().venta_id,
+            Some(venta.id)
+        );
     }
 }

@@ -104,7 +104,7 @@ export function registrarDevolucion(
 	return ejecutar<void>('registrar_devolucion', { venta_id: ventaId, items, motivo });
 }
 
-/** Devuelve las devoluciones recientes (mock-only: el backend no expone command aún). */
+/** Devuelve las devoluciones recientes, más nuevas primero. */
 export function listarDevoluciones(): Promise<DevolucionRegistrada[]> {
 	return ejecutar<DevolucionRegistrada[]>('listar_devoluciones', {});
 }

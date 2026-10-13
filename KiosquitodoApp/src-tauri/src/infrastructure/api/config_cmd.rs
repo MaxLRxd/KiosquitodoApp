@@ -1,6 +1,6 @@
-﻿//! Commands Tauri del mÃ³dulo de configuraciÃ³n del sistema: rutas, autostart
-//! y backups. La integraciÃ³n con Mercado Pago (token, keyring y sync) queda
-//! DIFERIDA por decisiÃ³n del equipo (P16 sin MP).
+﻿//! Commands Tauri del módulo de configuración del sistema: rutas, autostart
+//! y backups. La integración con Mercado Pago (token, keyring y sync) queda
+//! DIFERIDA por decisión del equipo (P16 sin MP).
 
 use crate::config::AppConfig;
 use crate::infrastructure::db::DbConn;
@@ -36,19 +36,19 @@ pub fn obtener_rutas() -> Result<RutasApp, String> {
     Ok(cfg.into())
 }
 
-/// Â¿EstÃ¡ habilitado el arranque automÃ¡tico al iniciar sesiÃ³n?
+/// ¿Está habilitado el arranque automático al iniciar sesión?
 #[tauri::command]
 pub fn autostart_estado(app: AppHandle) -> Result<bool, String> {
     autostart::autostart_habilitado(&app).map_err(|e| e.to_string())
 }
 
-/// Habilita el arranque automÃ¡tico con Windows.
+/// Habilita el arranque automático con Windows.
 #[tauri::command]
 pub fn habilitar_autostart(app: AppHandle) -> Result<(), String> {
     autostart::habilitar_autostart(&app).map_err(|e| e.to_string())
 }
 
-/// Deshabilita el arranque automÃ¡tico.
+/// Deshabilita el arranque automático.
 #[tauri::command]
 pub fn deshabilitar_autostart(app: AppHandle) -> Result<(), String> {
     autostart::deshabilitar_autostart(&app).map_err(|e| e.to_string())
@@ -63,7 +63,7 @@ pub fn crear_backup_manual(db: State<'_, DbConn>) -> Result<String, String> {
     Ok(ruta.to_string_lossy().into_owned())
 }
 
-/// Elimina backups mÃ¡s viejos que `retencion_dias`; devuelve cuÃ¡ntos borrÃ³.
+/// Elimina backups más viejos que `retencion_dias`; devuelve cuántos borró.
 #[tauri::command]
 pub fn limpiar_backups_viejos(retencion_dias: u32) -> Result<usize, String> {
     let cfg = AppConfig::resolver().map_err(|e| e.to_string())?;

@@ -152,20 +152,32 @@ impl VentaRepo for VentaSqlite {
 
     fn listar_ventas_dia(&self, fecha: &str) -> AppResult<Vec<Venta>> {
         let conn = self.db.conn.lock().expect("lock");
+        // Un solo JOIN (en vez de 1 + N consultas): las filas de ítems de una
+        // misma venta quedan contiguas gracias al ORDER BY por id de venta.
         let mut stmt = conn.prepare(
-            "SELECT id, total, medio_pago, monto_efectivo, monto_mp, descripcion_mp, hora \
-             FROM ventas WHERE date(hora) = ?1 ORDER BY hora DESC",
+            "SELECT v.id, v.total, v.medio_pago, v.monto_efectivo, v.monto_mp, \
+                    v.descripcion_mp, v.hora, \
+                    i.producto_id, i.cantidad, i.precio_unitario \
+             FROM ventas v \
+             LEFT JOIN venta_items i ON i.venta_id = v.id \
+             WHERE date(v.hora) = ?1 \
+             ORDER BY v.hora DESC, v.id DESC, i.id ASC",
         )?;
-        let mut ventas = stmt
-            .query_map(params![fecha], fila_a_venta)?
-            .collect::<Result<Vec<_>, _>>()?;
 
-        drop(stmt);
-        drop(conn);
-
-        // Cargar ítems para cada venta
-        for v in ventas.iter_mut() {
-            v.items = self.obtener_items_venta(v.id)?;
+        let mut rows = stmt.query(params![fecha])?;
+        let mut ventas: Vec<Venta> = Vec::new();
+        while let Some(row) = rows.next()? {
+            let venta_id: i64 = row.get(0)?;
+            if ventas.last().map(|v| v.id) != Some(venta_id) {
+                ventas.push(fila_a_venta(row)?);
+            }
+            if let Some(producto_id) = row.get::<_, Option<i64>>(7)? {
+                ventas.last_mut().expect("venta recién insertada").items.push(VentaItem {
+                    producto_id,
+                    cantidad: row.get(8)?,
+                    precio_unitario: row.get(9)?,
+                });
+            }
         }
         Ok(ventas)
     }
@@ -382,18 +394,33 @@ mod tests {
     fn listar_ventas_dia() {
         let (ventas, productos) = setup();
         let p1 = crear_producto(&productos, 1);
+        let p2 = crear_producto(&productos, 2);
 
-        for _ in 0..2 {
-            let _ = ventas
-                .crear_venta_transaccional(
-                    &nueva_venta(vec![VentaItem { producto_id: p1.id, cantidad: 1, precio_unitario: 500 }]),
-                )
-                .unwrap();
-        }
+        // Venta con dos ítems (verifica el agrupado del JOIN)
+        ventas
+            .crear_venta_transaccional(&nueva_venta(vec![
+                VentaItem { producto_id: p1.id, cantidad: 2, precio_unitario: 500 },
+                VentaItem { producto_id: p2.id, cantidad: 1, precio_unitario: 700 },
+            ]))
+            .unwrap();
+        // Venta con un ítem
+        ventas
+            .crear_venta_transaccional(
+                &nueva_venta(vec![VentaItem { producto_id: p1.id, cantidad: 1, precio_unitario: 500 }]),
+            )
+            .unwrap();
 
         let hoy = chrono::Local::now().format("%Y-%m-%d").to_string();
         let del_dia = ventas.listar_ventas_dia(&hoy).unwrap();
         assert_eq!(del_dia.len(), 2);
+
+        // No se mezclan ítems entre ventas: una tiene 2 ítems, la otra 1.
+        let mut cantidades: Vec<usize> = del_dia.iter().map(|v| v.items.len()).collect();
+        cantidades.sort_unstable();
+        assert_eq!(cantidades, vec![1, 2]);
+
+        let con_dos = del_dia.iter().find(|v| v.items.len() == 2).unwrap();
+        assert_eq!(con_dos.items.iter().map(|i| i.cantidad).sum::<i64>(), 3);
     }
 
     #[test]

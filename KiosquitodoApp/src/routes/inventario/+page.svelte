@@ -147,7 +147,6 @@
 					barcode: fBarcode.trim(),
 					precio_venta: precioVenta,
 					precio_costo: precioCosto,
-					stock: Number(fStock) || 0,
 					stock_minimo: Number(fStockMinimo) || 0,
 					categoria_id: fCategoriaId,
 					activo: true
@@ -407,17 +406,17 @@
 					</label>
 				</div>
 				<div class="grid grid-cols-2 gap-3">
-					<label class="block">
-						<span class="text-xs text-slate-600">
-							{editandoId === null ? 'Stock inicial' : 'Stock actual'}
-						</span>
-						<input
-							bind:value={fStock}
-							type="number"
-							min="0"
-							class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-						/>
-					</label>
+					{#if editandoId === null}
+						<label class="block">
+							<span class="text-xs text-slate-600">Stock inicial</span>
+							<input
+								bind:value={fStock}
+								type="number"
+								min="0"
+								class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+							/>
+						</label>
+					{/if}
 					<label class="block">
 						<span class="text-xs text-slate-600">Stock mínimo de alerta</span>
 						<input
@@ -428,6 +427,11 @@
 						/>
 					</label>
 				</div>
+				{#if editandoId !== null}
+					<p class="text-xs text-slate-500">
+						El stock se modifica con la acción «Stock» (ajuste auditado con motivo).
+					</p>
+				{/if}
 				<label class="block">
 					<span class="text-xs text-slate-600">Categoría</span>
 					<select

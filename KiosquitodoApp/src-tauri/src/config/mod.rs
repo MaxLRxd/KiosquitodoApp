@@ -32,10 +32,25 @@ pub mod defaults {
     pub const MP_PAGE_LIMIT: u32 = 50;
 }
 
+/// Carpeta de datos en la raíz del proyecto (`<repo>/datos-pruebas/`).
+///
+/// En modo desarrollo la BD vive aquí para poder inspeccionarla a mano y
+/// corroborar la persistencia al correr los tests o `tauri dev`.
+/// `CARGO_MANIFEST_DIR` apunta a `.../KiosquitodoApp/src-tauri`, así que
+/// subimos dos niveles hasta la raíz del repositorio.
+pub fn carpeta_datos_proyecto() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(|p| p.parent())
+        .map(|raiz| raiz.join("datos-pruebas"))
+        .unwrap_or_else(|| PathBuf::from("datos-pruebas"))
+}
+
 /// Rutas resueltas del sistema de archivos. Se crean al inicio y no cambian.
 #[derive(Debug, Clone)]
 pub struct AppConfig {
-    /// Directorio de datos de la app (`%APPDATA%/KiosquitodoApp/`)
+    /// Directorio de datos de la app. En dev: `<repo>/datos-pruebas/`
+    /// (temporalmente; en release debería volver a `%APPDATA%/KiosquitodoApp/`).
     pub data_dir: PathBuf,
     /// Directorio de backups (`%USERPROFILE%/Documents/KioscoBackups/`)
     pub backup_dir: PathBuf,
@@ -51,7 +66,9 @@ impl AppConfig {
     pub fn resolver() -> Result<Self, std::io::Error> {
         let home = dirs_home();
 
-        let data_dir = home.join("AppData").join("Roaming").join("KiosquitodoApp");
+        // Modo desarrollo: la BD vive en la raíz del proyecto para poder
+        // inspeccionarla y verificar la persistencia (ver `carpeta_datos_proyecto`).
+        let data_dir = carpeta_datos_proyecto();
         let backup_dir = home.join("Documents").join("KioscoBackups");
         let log_dir = home.join("KiosquitodoApp").join("logs");
 

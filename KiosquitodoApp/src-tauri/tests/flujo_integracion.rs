@@ -16,8 +16,13 @@ use kiosco_app_lib::ports::producto_repo::CategoriaRepo;
 use kiosco_app_lib::ports::venta_repo::VentaRepo;
 
 fn bd_temporal() -> (DbConn, std::path::PathBuf) {
-    let mut path = std::env::temp_dir();
-    path.push(format!("kiosco_e2e_{}.db", std::process::id()));
+    // La BD se crea en la raíz del proyecto para poder inspeccionarla y
+    // corroborar la persistencia después de correr los tests.
+    let dir = kiosco_app_lib::config::carpeta_datos_proyecto();
+    std::fs::create_dir_all(&dir).expect("crear carpeta de datos del proyecto");
+    let path = dir.join("flujo_integracion.db");
+    // Empezar de cero en cada corrida para que las aserciones sean estables.
+    let _ = std::fs::remove_file(&path);
     let db = DbConn::abrir(&path).expect("abrir BD en archivo");
     (db, path)
 }
@@ -36,7 +41,7 @@ fn producto(nombre: &str, barcode: &str, precio: i64, costo: i64, stock: i64) ->
 
 #[test]
 fn flujo_completo_en_bd_real() {
-    let (db, path) = bd_temporal();
+    let (db, _path) = bd_temporal();
 
     // ── Categoría ─────────────────────────────────────────────────────
     let producto_repo = ProductoSqlite::new(db.clone());
@@ -138,7 +143,7 @@ fn flujo_completo_en_bd_real() {
     assert!(csv.contains("cantidad_ventas"));
     assert!(csv.contains("1"));
 
-    // Limpieza
+    // Se deja el archivo en `datos-pruebas/flujo_integracion.db` para poder
+    // abrirlo y verificar la persistencia.
     drop(db);
-    let _ = std::fs::remove_file(&path);
 }

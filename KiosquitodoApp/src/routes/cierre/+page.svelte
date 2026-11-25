@@ -102,115 +102,144 @@
 	});
 </script>
 
-<div class="p-6">
-	<div class="flex flex-wrap items-center justify-between gap-4">
+<div class="page">
+	<div class="page-header">
 		<div>
-			<h1 class="text-2xl font-bold">Cierre de Caja</h1>
-			<p class="text-sm text-slate-500">
-				Resumen diario con totales, margen bruto estimado y delta de conciliación MP. El cierre
-				no bloquea el sistema: puede ejecutarse en cualquier momento.
+			<p class="eyebrow">Operación diaria</p>
+			<h1 class="page-title mt-1">Cierre de caja</h1>
+			<p class="page-subtitle">
+				Resumen diario con totales, margen bruto estimado y delta de conciliación MP. El cierre no
+				bloquea el sistema: puede ejecutarse en cualquier momento.
 			</p>
 		</div>
-		<label class="flex items-center gap-2 text-sm font-medium text-slate-700">
+		<label class="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-500">
 			Fecha
-			<input type="date" bind:value={fecha} class="rounded-md border border-slate-300 px-3 py-1.5" />
+			<input type="date" bind:value={fecha} class="input-compact" />
 		</label>
 	</div>
 
 	{#if cargandoResumen}
-		<p class="mt-6 text-sm text-slate-500">Calculando resumen…</p>
+		<div class="card mt-5 flex items-center gap-2 p-6 text-sm text-slate-500">
+			<span class="h-2 w-2 animate-pulse-soft rounded-full bg-indigo-500"></span>
+			Calculando resumen…
+		</div>
 	{:else if resumen}
-		<div class="mt-6 grid grid-cols-2 gap-4 md:grid-cols-4 xl:grid-cols-6">
-			<div class="rounded-xl border border-slate-200 bg-white p-4">
-				<p class="text-xs font-medium uppercase tracking-wide text-slate-500">Ventas</p>
-				<p class="mt-1 text-2xl font-bold">{resumen.cantidad_ventas}</p>
+		<div class="mt-5 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+			<div class="stat-card">
+				<p class="stat-label">Ventas</p>
+				<p class="stat-value">{resumen.cantidad_ventas}</p>
+				<p class="stat-hint">Operaciones del día</p>
 			</div>
-			<div class="rounded-xl border border-slate-200 bg-white p-4">
-				<p class="text-xs font-medium uppercase tracking-wide text-slate-500">Total</p>
-				<p class="mt-1 text-2xl font-bold text-slate-800">{formatearPesos(resumen.total_ventas)}</p>
+			<div class="stat-card">
+				<p class="stat-label">Total</p>
+				<p class="stat-value">{formatearPesos(resumen.total_ventas)}</p>
+				<p class="stat-hint">Facturación bruta</p>
 			</div>
-			<div class="rounded-xl border border-slate-200 bg-white p-4">
-				<p class="text-xs font-medium uppercase tracking-wide text-slate-500">Efectivo</p>
-				<p class="mt-1 text-2xl font-bold text-emerald-700">
-					{formatearPesos(resumen.total_efectivo)}
-				</p>
+			<div class="stat-card">
+				<p class="stat-label">Efectivo</p>
+				<p class="stat-value text-emerald-700">{formatearPesos(resumen.total_efectivo)}</p>
+				<p class="stat-hint">Cobrado en caja</p>
 			</div>
-			<div class="rounded-xl border border-slate-200 bg-white p-4">
-				<p class="text-xs font-medium uppercase tracking-wide text-slate-500">Mercado Pago</p>
-				<p class="mt-1 text-2xl font-bold text-sky-700">{formatearPesos(resumen.total_mp)}</p>
+			<div class="stat-card">
+				<p class="stat-label">Mercado Pago</p>
+				<p class="stat-value text-sky-700">{formatearPesos(resumen.total_mp)}</p>
+				<p class="stat-hint">Cobrado por MP</p>
 			</div>
-			<div class="rounded-xl border border-slate-200 bg-white p-4">
-				<p class="text-xs font-medium uppercase tracking-wide text-slate-500">Margen bruto</p>
-				<p class="mt-1 text-2xl font-bold text-slate-800">
-					{formatearPesos(resumen.margen_bruto)}
-				</p>
+			<div class="stat-card">
+				<p class="stat-label">Margen bruto</p>
+				<p class="stat-value">{formatearPesos(resumen.margen_bruto)}</p>
+				<p class="stat-hint">Estimado del día</p>
 			</div>
-			<div class="rounded-xl border border-slate-200 bg-white p-4">
-				<p class="text-xs font-medium uppercase tracking-wide text-slate-500">Δ Mercado Pago</p>
-				<p class="mt-1 text-2xl font-bold {resumen.delta_mp > 0 ? 'text-emerald-700' : resumen.delta_mp < 0 ? 'text-red-600' : 'text-slate-800'}">
+			<div class="stat-card">
+				<p class="stat-label">Δ Mercado Pago</p>
+				<p
+					class="stat-value {resumen.delta_mp > 0
+						? 'text-emerald-700'
+						: resumen.delta_mp < 0
+							? 'text-rose-600'
+							: 'text-slate-900'}"
+				>
 					{resumen.delta_mp > 0 ? '+' : ''}{formatearPesos(resumen.delta_mp)}
 				</p>
+				<p class="stat-hint">API vs registrado</p>
 			</div>
 		</div>
 
-		<p class="mt-2 text-xs text-slate-500">
-			Δ MP = pagos acreditados por la API − ventas MP registradas. Con la integración de Mercado
-			Pago diferida, todo lo cobrado por MP figura aún como no acreditado.
-		</p>
-
-		<div class="mt-4">
-			<button
-				onclick={cerrarCajaDia}
-				disabled={cerrando || resumen.cantidad_ventas === 0}
-				class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-			>
-				{cerrando ? 'Registrando…' : 'Cerrar caja del día'}
-			</button>
-			{#if resumen.cantidad_ventas === 0}
-				<span class="ml-3 text-sm text-slate-500">Sin ventas en la fecha seleccionada.</span>
-			{/if}
+		<div class="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
+			<p class="max-w-3xl text-xs leading-relaxed text-slate-500">
+				Δ MP = pagos acreditados por la API − ventas MP registradas. Con la integración de Mercado
+				Pago diferida, todo lo cobrado por MP figura aún como no acreditado.
+			</p>
+			<div class="flex items-center gap-3">
+				{#if resumen.cantidad_ventas === 0}
+					<span class="text-xs text-slate-400">Sin ventas en la fecha seleccionada.</span>
+				{/if}
+				<button
+					onclick={cerrarCajaDia}
+					disabled={cerrando || resumen.cantidad_ventas === 0}
+					class="btn-primary"
+				>
+					{cerrando ? 'Registrando…' : 'Cerrar caja del día'}
+				</button>
+			</div>
 		</div>
 	{/if}
 
-	<section class="mt-10">
-		<h2 class="text-lg font-bold">Historial de cierres</h2>
-		<p class="text-sm text-slate-500">Hacé clic en una fila para ver el resumen de esa fecha.</p>
+	<section class="mt-8">
+		<div class="flex flex-wrap items-end justify-between gap-3">
+			<div>
+				<h2 class="section-title">Historial de cierres</h2>
+				<p class="section-subtitle">Hacé clic en una fila para ver el resumen de esa fecha.</p>
+			</div>
+			<span class="badge-neutral">{cierres.length} cierre(s)</span>
+		</div>
 
 		{#if cierres.length === 0}
-			<p class="mt-3 text-sm text-slate-500">Todavía no hay cierres registrados.</p>
+			<div class="empty-state mt-4">
+				<p class="text-sm font-semibold text-slate-700">Todavía no hay cierres registrados</p>
+				<p class="mt-1 text-xs text-slate-500">
+					Cuando cierres la caja del día, el resumen queda guardado en este historial.
+				</p>
+			</div>
 		{:else}
-			<div class="mt-3 overflow-x-auto rounded-xl border border-slate-200">
-				<table class="w-full text-left text-sm">
-					<thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+			<div class="table-shell mt-4 overflow-x-auto">
+				<table class="table">
+					<thead>
 						<tr>
-							<th class="px-4 py-2">Fecha</th>
-							<th class="px-4 py-2 text-right">Ventas</th>
-							<th class="px-4 py-2 text-right">Efectivo</th>
-							<th class="px-4 py-2 text-right">Mercado Pago</th>
-							<th class="px-4 py-2 text-right">Total</th>
-							<th class="px-4 py-2 text-right">Margen</th>
-							<th class="px-4 py-2 text-right">Δ MP</th>
+							<th>Fecha</th>
+							<th class="text-right">Ventas</th>
+							<th class="text-right">Efectivo</th>
+							<th class="text-right">Mercado Pago</th>
+							<th class="text-right">Total</th>
+							<th class="text-right">Margen</th>
+							<th class="text-right">Δ MP</th>
 						</tr>
 					</thead>
-					<tbody class="divide-y divide-slate-100">
+					<tbody>
 						{#each cierres as c (c.id)}
 							<tr
-								class="cursor-pointer hover:bg-slate-50 {fecha === c.fecha ? 'bg-blue-50' : ''}"
+								class="cursor-pointer {fecha === c.fecha ? 'bg-indigo-50/70' : ''}"
 								onclick={() => seleccionarCierre(c)}
 							>
-								<td class="px-4 py-2 font-medium text-slate-800">{c.fecha}</td>
-								<td class="px-4 py-2 text-right">{c.resumen.cantidad_ventas}</td>
-								<td class="px-4 py-2 text-right text-emerald-700">
+								<td class="font-semibold text-slate-800">{c.fecha}</td>
+								<td class="text-right tabular-nums">{c.resumen.cantidad_ventas}</td>
+								<td class="text-right tabular-nums text-emerald-700">
 									{formatearPesos(c.resumen.total_efectivo)}
 								</td>
-								<td class="px-4 py-2 text-right text-sky-700">
+								<td class="text-right tabular-nums text-sky-700">
 									{formatearPesos(c.resumen.total_mp)}
 								</td>
-								<td class="px-4 py-2 text-right font-semibold">
+								<td class="text-right font-semibold tabular-nums">
 									{formatearPesos(c.resumen.total_ventas)}
 								</td>
-								<td class="px-4 py-2 text-right">{formatearPesos(c.resumen.margen_bruto)}</td>
-								<td class="px-4 py-2 text-right {c.resumen.delta_mp > 0 ? 'text-emerald-700' : c.resumen.delta_mp < 0 ? 'text-red-600' : 'text-slate-600'}">
+								<td class="text-right tabular-nums">{formatearPesos(c.resumen.margen_bruto)}</td>
+								<td
+									class="text-right tabular-nums {c.resumen.delta_mp > 0
+										? 'text-emerald-700'
+										: c.resumen.delta_mp < 0
+											? 'text-rose-600'
+											: 'text-slate-600'}"
+								>
 									{c.resumen.delta_mp > 0 ? '+' : ''}{formatearPesos(c.resumen.delta_mp)}
 								</td>
 							</tr>
@@ -221,26 +250,21 @@
 		{/if}
 	</section>
 
-	<section class="mt-10">
-		<h2 class="text-lg font-bold">Exportar histórico</h2>
-		<p class="text-sm text-slate-500">
+	<section class="card card-pad mt-8">
+		<h2 class="section-title">Exportar histórico</h2>
+		<p class="section-subtitle">
 			Rango de fechas (vacío = sin límite). Montos en centavos, primera fila con encabezado.
 		</p>
-		<div class="mt-3 flex flex-wrap items-end gap-3">
-			<label class="flex flex-col gap-1 text-sm font-medium text-slate-700">
+		<div class="mt-4 flex flex-wrap items-end gap-3">
+			<label class="label">
 				Desde
-				<input type="date" bind:value={rangoDesde} class="rounded-md border border-slate-300 px-3 py-1.5" />
+				<input type="date" bind:value={rangoDesde} class="input-compact" />
 			</label>
-			<label class="flex flex-col gap-1 text-sm font-medium text-slate-700">
+			<label class="label">
 				Hasta
-				<input type="date" bind:value={rangoHasta} class="rounded-md border border-slate-300 px-3 py-1.5" />
+				<input type="date" bind:value={rangoHasta} class="input-compact" />
 			</label>
-			<button
-				onclick={exportarCsv}
-				class="rounded-lg bg-slate-800 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-900"
-			>
-				Exportar CSV
-			</button>
+			<button onclick={exportarCsv} class="btn-secondary">Exportar CSV</button>
 		</div>
 	</section>
 </div>

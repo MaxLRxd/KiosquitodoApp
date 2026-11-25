@@ -196,70 +196,80 @@
 	}
 </script>
 
-<div class="p-6">
-	<div>
-		<h1 class="text-2xl font-bold">Configuración</h1>
-		<p class="text-sm text-slate-500">
-			Sistema, backups y preferencias de operación. Los registros y backups se comprueban acá.
-		</p>
+<div class="page">
+	<div class="page-header">
+		<div>
+			<p class="eyebrow">Administración</p>
+			<h1 class="page-title mt-1">Configuración</h1>
+			<p class="page-subtitle">
+				Sistema, backups y preferencias de operación. Los registros y backups se comprueban acá.
+			</p>
+		</div>
+		<span class="badge {enTauri ? 'badge-success' : 'badge-warn'}">
+			{enTauri ? 'App de escritorio' : 'Modo navegador'}
+		</span>
 	</div>
 
-	<section class="mt-6 rounded-xl border border-slate-200 bg-white p-5">
-		<h2 class="text-lg font-bold">Sistema y registros</h2>
-		<p class="text-sm text-slate-500">
-			Rutas resueltas por el backend y creación manual de backup. Cada backup manual queda registrado
-			en el log del día.
-		</p>
+	<section class="card card-pad mt-5">
+		<div class="flex flex-wrap items-start justify-between gap-3">
+			<div>
+				<h2 class="section-title">Sistema y registros</h2>
+				<p class="section-subtitle">
+					Rutas resueltas por el backend y creación manual de backup. Cada backup manual queda
+					registrado en el log del día.
+				</p>
+			</div>
+			<span class="badge-info">Diagnóstico</span>
+		</div>
 
 		{#if !enTauri}
-			<p class="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+			<div class="alert-warn mt-4">
 				Modo navegador: las rutas y el backup son simulados por el mock; en la app Tauri se usan
 				rutas y archivos reales.
-			</p>
+			</div>
 		{/if}
 
 		{#if rutas}
-			<dl class="mt-4 grid gap-4 text-sm sm:grid-cols-2">
-				<div>
-					<dt class="text-xs font-medium uppercase tracking-wide text-slate-500">
+			<dl class="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+				<div class="rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3">
+					<dt class="text-[11px] font-bold uppercase tracking-wider text-slate-500">
 						Directorio de logs
 					</dt>
 					<dd class="mt-1 break-all font-mono text-xs text-slate-800">{rutas.log_dir}</dd>
 				</div>
-				<div>
-					<dt class="text-xs font-medium uppercase tracking-wide text-slate-500">
+				<div class="rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3">
+					<dt class="text-[11px] font-bold uppercase tracking-wider text-slate-500">
 						Directorio de backups
 					</dt>
 					<dd class="mt-1 break-all font-mono text-xs text-slate-800">{rutas.backup_dir}</dd>
 				</div>
-				<div>
-					<dt class="text-xs font-medium uppercase tracking-wide text-slate-500">
+				<div class="rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3">
+					<dt class="text-[11px] font-bold uppercase tracking-wider text-slate-500">
 						Directorio de datos
 					</dt>
 					<dd class="mt-1 break-all font-mono text-xs text-slate-800">{rutas.data_dir}</dd>
 				</div>
-				<div>
-					<dt class="text-xs font-medium uppercase tracking-wide text-slate-500">
+				<div class="rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3">
+					<dt class="text-[11px] font-bold uppercase tracking-wider text-slate-500">
 						Base de datos
 					</dt>
 					<dd class="mt-1 break-all font-mono text-xs text-slate-800">{rutas.db_path}</dd>
 				</div>
 			</dl>
 		{:else}
-			<p class="mt-4 text-sm text-slate-500">Cargando rutas…</p>
+			<div class="mt-4 flex items-center gap-2 text-sm text-slate-500">
+				<span class="h-2 w-2 animate-pulse-soft rounded-full bg-indigo-500"></span>
+				Cargando rutas…
+			</div>
 		{/if}
 
 		<div class="mt-5 flex flex-wrap items-center gap-3">
-			<button
-				onclick={crearBackup}
-				disabled={creando || !rutas}
-				class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-			>
+			<button onclick={crearBackup} disabled={creando || !rutas} class="btn-primary">
 				{creando ? 'Creando…' : 'Crear backup manual'}
 			</button>
 			{#if ultimoBackup}
 				<span class="text-xs text-slate-500">
-					Último backup: <span class="font-mono">{ultimoBackup}</span>
+					Último backup: <span class="font-mono text-slate-700">{ultimoBackup}</span>
 				</span>
 			{/if}
 		</div>
@@ -268,116 +278,120 @@
 			<button
 				onclick={() => void probarBackupDiario()}
 				disabled={verificandoBackupDiario || !rutas}
-				class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+				class="btn-secondary"
 			>
 				{verificandoBackupDiario ? 'Verificando…' : 'Probar backup automático'}
 			</button>
 			{#if resultadoBackupDiario}
 				<span class="text-xs text-slate-600">
-					Resultado: <span class="font-mono">{resultadoBackupDiario}</span>
+					Resultado: <span class="font-mono text-slate-800">{resultadoBackupDiario}</span>
 				</span>
 			{/if}
 		</div>
 
-		<p class="mt-3 text-xs text-slate-500">
+		<p class="mt-3 text-xs leading-relaxed text-slate-500">
 			Los eventos se escriben en <span class="font-mono">kiosco_YYYY-MM-DD.log</span> dentro del
-			directorio de logs. El plugin de actualizaciones está registrado, pero todavía no hay
-			endpoint ni firma: la app no busca versiones nuevas.
+			directorio de logs. El plugin de actualizaciones está registrado, pero todavía no hay endpoint
+			ni firma: la app no busca versiones nuevas.
 		</p>
 	</section>
 
-	<section class="mt-6 rounded-xl border border-slate-200 bg-white p-5">
-		<h2 class="text-lg font-bold">Preferencias</h2>
-		<p class="text-sm text-slate-500">
-			Ajustes guardados en la base de datos. Las claves ausentes toman su valor por defecto.
-		</p>
+	<section class="card card-pad mt-5">
+		<div class="flex flex-wrap items-start justify-between gap-3">
+			<div>
+				<h2 class="section-title">Preferencias</h2>
+				<p class="section-subtitle">
+					Ajustes guardados en la base de datos. Las claves ausentes toman su valor por defecto.
+				</p>
+			</div>
+			<span class="badge-neutral">Operación</span>
+		</div>
 
 		{#if configuracion}
 			<div class="mt-4 grid gap-4 sm:grid-cols-2">
-				<label class="flex flex-col gap-1 text-sm font-medium text-slate-700">
+				<label class="label">
 					Intervalo de sync (minutos)
 					<input
 						type="number"
 						min="1"
 						bind:value={configuracion.sync_intervalo_minutos}
-						class="rounded-md border border-slate-300 px-3 py-1.5"
+						class="input"
 					/>
 				</label>
-				<label class="flex flex-col gap-1 text-sm font-medium text-slate-700">
+				<label class="label">
 					Inactividad (minutos)
 					<input
 						type="number"
 						min="0"
 						bind:value={configuracion.inactividad_minutos}
-						class="rounded-md border border-slate-300 px-3 py-1.5"
+						class="input"
 					/>
-					<span class="text-xs font-normal text-slate-500">0 = bloqueo desactivado</span>
+					<span class="text-[11px] font-medium normal-case tracking-normal text-slate-400">
+						0 = bloqueo desactivado
+					</span>
 				</label>
-				<label class="flex items-center gap-2 text-sm font-medium text-slate-700">
+				<label
+					class="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3 text-sm font-semibold text-slate-700"
+				>
 					<input
 						type="checkbox"
 						bind:checked={configuracion.sonidos_activos}
-						class="h-4 w-4 rounded border-slate-300"
+						class="h-4 w-4 rounded border-slate-300 accent-indigo-600"
 					/>
 					Sonidos activos
 				</label>
-				<label class="flex flex-col gap-1 text-sm font-medium text-slate-700 sm:col-span-2">
+				<label class="label sm:col-span-2">
 					Carpeta de backups
 					<input
 						type="text"
 						bind:value={configuracion.backup_dir}
-						class="rounded-md border border-slate-300 px-3 py-1.5 font-mono text-xs"
+						class="input font-mono text-xs"
 					/>
-					<span class="text-xs font-normal text-slate-500">
-						La usan el backup manual y la limpieza de copias viejas.
+					<span class="text-[11px] font-medium normal-case tracking-normal text-slate-400">
+						La usan el backup manual, el backup diario y la limpieza de copias viejas.
 					</span>
 				</label>
 			</div>
 
-			<div class="mt-5 flex flex-wrap items-center gap-3">
+			<div class="mt-5 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-4">
 				<button
 					onclick={() => void seleccionarCarpeta()}
 					disabled={guardando}
-					class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+					class="btn-secondary"
 				>
 					Seleccionar carpeta…
 				</button>
-				<button
-					onclick={guardarPreferencias}
-					disabled={guardando}
-					class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-				>
+				<button onclick={guardarPreferencias} disabled={guardando} class="btn-primary">
 					{guardando ? 'Guardando…' : 'Guardar preferencias'}
 				</button>
-				<button
-					onclick={() => void cargarDatos()}
-					disabled={guardando}
-					class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-				>
+				<button onclick={() => void cargarDatos()} disabled={guardando} class="btn-ghost">
 					Recargar
 				</button>
 			</div>
 		{:else}
-			<p class="mt-4 text-sm text-slate-500">Cargando preferencias…</p>
+			<div class="mt-4 flex items-center gap-2 text-sm text-slate-500">
+				<span class="h-2 w-2 animate-pulse-soft rounded-full bg-indigo-500"></span>
+				Cargando preferencias…
+			</div>
 		{/if}
 	</section>
 
-	<section class="mt-6 rounded-xl border border-slate-200 bg-white p-5">
-		<h2 class="text-lg font-bold">Acceso y bloqueo</h2>
-		<p class="text-sm text-slate-500">
-			El PIN se guarda como hash SHA-256 con salt, nunca en claro. Sin PIN configurado no hay
-			bloqueo por inactividad.
-		</p>
-
-		<p class="mt-4 text-sm">
-			Estado:
-			<span class="font-semibold {tienePin ? 'text-green-700' : 'text-slate-600'}">
-				{tienePin ? 'PIN configurado' : 'Sin PIN (bloqueo desactivado)'}
+	<section class="card card-pad mt-5">
+		<div class="flex flex-wrap items-start justify-between gap-3">
+			<div>
+				<h2 class="section-title">Acceso y bloqueo</h2>
+				<p class="section-subtitle">
+					El PIN se guarda como hash SHA-256 con salt, nunca en claro. Sin PIN configurado no hay
+					bloqueo por inactividad.
+				</p>
+			</div>
+			<span class="badge {tienePin ? 'badge-success' : 'badge-neutral'}">
+				{tienePin ? 'PIN configurado' : 'Sin PIN'}
 			</span>
-		</p>
+		</div>
 
 		<div class="mt-4 grid gap-4 sm:grid-cols-2">
-			<label class="flex flex-col gap-1 text-sm font-medium text-slate-700">
+			<label class="label">
 				Nuevo PIN (4-6 dígitos)
 				<input
 					type="password"
@@ -385,10 +399,10 @@
 					autocomplete="new-password"
 					maxlength="6"
 					bind:value={pinNuevo}
-					class="rounded-md border border-slate-300 px-3 py-1.5 tracking-widest"
+					class="input tracking-[0.4em]"
 				/>
 			</label>
-			<label class="flex flex-col gap-1 text-sm font-medium text-slate-700">
+			<label class="label">
 				Confirmar PIN
 				<input
 					type="password"
@@ -396,7 +410,7 @@
 					autocomplete="new-password"
 					maxlength="6"
 					bind:value={pinConfirmar}
-					class="rounded-md border border-slate-300 px-3 py-1.5 tracking-widest"
+					class="input tracking-[0.4em]"
 				/>
 			</label>
 		</div>
@@ -405,78 +419,68 @@
 			<button
 				onclick={() => void configurarPin()}
 				disabled={guardandoPin || !pinNuevo}
-				class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+				class="btn-primary"
 			>
 				{guardandoPin ? 'Guardando…' : tienePin ? 'Cambiar PIN' : 'Configurar PIN'}
 			</button>
 			{#if tienePin}
-				<button
-					onclick={() => void quitarPin()}
-					disabled={guardandoPin}
-					class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-				>
+				<button onclick={() => void quitarPin()} disabled={guardandoPin} class="btn-secondary">
 					Quitar PIN
 				</button>
 				<button
 					onclick={() => (appState.bloqueado = true)}
-					class="rounded-lg border border-amber-300 px-4 py-2 text-sm font-medium text-amber-800 hover:bg-amber-50"
+					class="btn-sm rounded-lg border border-amber-200 bg-amber-50 font-semibold text-amber-800 transition hover:bg-amber-100"
 				>
 					Probar bloqueo
 				</button>
 			{/if}
 		</div>
 
-		<p class="mt-3 text-xs text-slate-500">
-			El bloqueo salta después de {configuracion?.inactividad_minutos ?? 5} minutos sin
-			interacción. Ajustá ese valor en Preferencias (0 = desactivado).
+		<p class="mt-3 text-xs leading-relaxed text-slate-500">
+			El bloqueo salta después de {configuracion?.inactividad_minutos ?? 5} minutos sin interacción.
+			Ajustá ese valor en Preferencias (0 = desactivado).
 		</p>
 	</section>
 
-	<section class="mt-6 rounded-xl border border-slate-200 bg-white p-5">
-		<h2 class="text-lg font-bold">Mercado Pago</h2>
-		<p class="text-sm text-slate-500">
-			Access Token guardado en el keyring cifrado de Windows. El backend solo informa si existe;
-			nunca lo devuelve ni lo escribe en el log. La sincronización de pagos sigue diferida.
-		</p>
-
-		{#if !enTauri}
-			<p class="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-				Modo navegador: el token se guarda solo en memoria (mock).
-			</p>
-		{/if}
-
-		<p class="mt-4 text-sm">
-			Estado:
-			<span class="font-semibold {tieneToken ? 'text-green-700' : 'text-slate-600'}">
+	<section class="card card-pad mt-5">
+		<div class="flex flex-wrap items-start justify-between gap-3">
+			<div>
+				<h2 class="section-title">Mercado Pago</h2>
+				<p class="section-subtitle">
+					Access Token guardado en el keyring cifrado de Windows. El backend solo informa si existe;
+					nunca lo devuelve ni lo escribe en el log. La sincronización de pagos sigue diferida.
+				</p>
+			</div>
+			<span class="badge {tieneToken ? 'badge-success' : 'badge-neutral'}">
 				{tieneToken ? 'Token configurado' : 'Sin token'}
 			</span>
-		</p>
+		</div>
 
-		<label class="mt-4 flex flex-col gap-1 text-sm font-medium text-slate-700">
+		{#if !enTauri}
+			<div class="alert-warn mt-4">Modo navegador: el token se guarda solo en memoria (mock).</div>
+		{/if}
+
+		<label class="label mt-4">
 			Access Token
 			<input
 				type="password"
 				autocomplete="off"
 				bind:value={tokenMp}
 				placeholder="APP_USR-… o TEST-…"
-				class="rounded-md border border-slate-300 px-3 py-1.5"
+				class="input font-mono text-xs"
 			/>
 		</label>
 
-		<div class="mt-5 flex flex-wrap items-center gap-3">
+		<div class="mt-5 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-4">
 			<button
 				onclick={() => void guardarToken()}
 				disabled={guardandoToken || !tokenMp.trim()}
-				class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+				class="btn-primary"
 			>
 				{guardandoToken ? 'Guardando…' : tieneToken ? 'Reemplazar token' : 'Guardar token'}
 			</button>
 			{#if tieneToken}
-				<button
-					onclick={() => void quitarToken()}
-					disabled={guardandoToken}
-					class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-				>
+				<button onclick={() => void quitarToken()} disabled={guardandoToken} class="btn-secondary">
 					Quitar token
 				</button>
 			{/if}

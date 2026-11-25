@@ -228,122 +228,140 @@
 	});
 </script>
 
-<div class="flex h-full flex-col p-6">
-	<div class="flex flex-wrap items-center gap-3">
-		<h1 class="text-2xl font-bold">Inventario</h1>
-		<input
-			bind:value={filtro}
-			oninput={cargar}
-			type="text"
-			placeholder="Buscar por nombre o código de barras…"
-			class="min-w-64 flex-1 rounded-lg border border-slate-300 px-3 py-2"
-		/>
-		<select
-			bind:value={categoriaId}
-			onchange={cargar}
-			class="rounded-lg border border-slate-300 px-3 py-2"
-		>
+<div class="page flex h-full flex-col">
+	<div class="page-header">
+		<div>
+			<p class="eyebrow">Catálogo</p>
+			<h1 class="page-title mt-1">Inventario</h1>
+			<p class="page-subtitle">
+				Productos, precios y stock. El stock se modifica únicamente con el ajuste auditado.
+			</p>
+		</div>
+		<div class="flex items-center gap-2">
+			<span class="badge-neutral">{productos.length} producto(s)</span>
+			<button onclick={abrirNuevo} class="btn-primary">+ Nuevo producto</button>
+		</div>
+	</div>
+
+	<div class="card mt-5 flex flex-wrap items-center gap-3 p-3.5">
+		<div class="relative min-w-64 flex-1">
+			<svg
+				class="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+				fill="none"
+				viewBox="0 0 24 24"
+				stroke-width="1.8"
+				stroke="currentColor"
+				aria-hidden="true"
+			>
+				<circle cx="11" cy="11" r="7" />
+				<path d="m16.5 16.5 4 4" stroke-linecap="round" />
+			</svg>
+			<input
+				bind:value={filtro}
+				oninput={cargar}
+				type="text"
+				placeholder="Buscar por nombre o código de barras…"
+				class="input !pl-11"
+			/>
+		</div>
+		<select bind:value={categoriaId} onchange={cargar} class="select w-full sm:w-56">
 			<option value={null}>Todas las categorías</option>
 			{#each categorias as categoria (categoria.id)}
 				<option value={categoria.id}>{categoria.nombre}</option>
 			{/each}
 		</select>
-		<button
-			onclick={abrirNuevo}
-			class="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700"
-		>
-			+ Nuevo producto
-		</button>
 	</div>
 
-	<div class="mt-4 flex-1 overflow-auto rounded-lg border border-slate-200">
-		<table class="w-full text-sm">
-			<thead class="sticky top-0 bg-white text-left text-xs uppercase tracking-wide text-slate-500">
-				<tr>
-					<th class="px-3 py-2">Producto</th>
-					<th class="px-3 py-2">Código</th>
-					<th class="px-3 py-2">Categoría</th>
-					<th class="px-3 py-2 text-right">P. venta</th>
-					<th class="px-3 py-2 text-right">Costo</th>
-					<th class="px-3 py-2 text-right">Stock</th>
-					<th class="px-3 py-2 text-right">Mínimo</th>
-					<th class="px-3 py-2">Acciones</th>
-				</tr>
-			</thead>
-			<tbody>
-				{#if cargando}
+	<div class="table-shell mt-5 flex min-h-0 flex-1 flex-col">
+		<div class="min-h-0 flex-1 overflow-auto">
+			<table class="table">
+				<thead class="sticky top-0 z-10 backdrop-blur">
 					<tr>
-						<td colspan="8" class="px-3 py-6 text-center text-slate-400">Cargando…</td>
+						<th>Producto</th>
+						<th>Código</th>
+						<th>Categoría</th>
+						<th class="text-right">P. venta</th>
+						<th class="text-right">Costo</th>
+						<th class="text-right">Stock</th>
+						<th class="text-right">Mínimo</th>
+						<th>Acciones</th>
 					</tr>
-				{:else if paginados.length === 0}
-					<tr>
-						<td colspan="8" class="px-3 py-6 text-center text-slate-400">Sin productos.</td>
-					</tr>
-				{:else}
-					{#each paginados as p (p.id)}
-						<tr class="border-t border-slate-100">
-							<td class="px-3 py-2 font-medium">
-								{p.nombre}
-								{#if estadoStock(p) === 'agotado'}
-									<span class="ml-2 rounded bg-red-100 px-2 py-0.5 text-xs text-red-700">Agotado</span>
-								{:else if estadoStock(p) === 'bajo'}
-									<span class="ml-2 rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-700">
-										Stock bajo
-									</span>
-								{/if}
-							</td>
-							<td class="px-3 py-2 font-mono text-xs text-slate-500">{p.barcode ?? '—'}</td>
-							<td class="px-3 py-2 text-slate-600">{nombreCategoria(p.categoria_id)}</td>
-							<td class="px-3 py-2 text-right">{formatearPesos(p.precio_venta)}</td>
-							<td class="px-3 py-2 text-right text-slate-600">
-								{p.precio_costo !== null ? formatearPesos(p.precio_costo) : '—'}
-							</td>
-							<td class="px-3 py-2 text-right font-semibold">{p.stock}</td>
-							<td class="px-3 py-2 text-right text-slate-500">{p.stock_minimo}</td>
-							<td class="px-3 py-2">
-								<div class="flex gap-1">
-									<button
-										onclick={() => abrirEditar(p)}
-										class="rounded border border-slate-300 px-2 py-1 text-xs hover:bg-slate-100"
-									>
-										Editar
-									</button>
-									<button
-										onclick={() => abrirAjuste(p)}
-										class="rounded border border-slate-300 px-2 py-1 text-xs hover:bg-slate-100"
-									>
-										Stock
-									</button>
-									<button
-										onclick={() => eliminar(p)}
-										class="rounded border border-red-200 px-2 py-1 text-xs text-red-600 hover:bg-red-50"
-									>
-										Baja
-									</button>
-								</div>
+				</thead>
+				<tbody>
+					{#if cargando}
+						<tr>
+							<td colspan="8" class="py-12 text-center text-slate-400">Cargando…</td>
+						</tr>
+					{:else if paginados.length === 0}
+						<tr>
+							<td colspan="8" class="py-12 text-center text-slate-400">
+								No hay productos con ese filtro.
 							</td>
 						</tr>
-					{/each}
-				{/if}
-			</tbody>
-		</table>
+					{:else}
+						{#each paginados as p (p.id)}
+							<tr>
+								<td class="font-semibold text-slate-800">
+									<div class="flex items-center gap-2">
+										<span>{p.nombre}</span>
+										{#if estadoStock(p) === 'agotado'}
+											<span class="badge-danger">Agotado</span>
+										{:else if estadoStock(p) === 'bajo'}
+											<span class="badge-warn">Stock bajo</span>
+										{/if}
+									</div>
+								</td>
+								<td class="font-mono text-xs text-slate-500">{p.barcode ?? '—'}</td>
+								<td class="text-slate-600">{nombreCategoria(p.categoria_id)}</td>
+								<td class="text-right font-medium tabular-nums">
+									{formatearPesos(p.precio_venta)}
+								</td>
+								<td class="text-right tabular-nums text-slate-600">
+									{p.precio_costo !== null ? formatearPesos(p.precio_costo) : '—'}
+								</td>
+								<td class="text-right font-bold tabular-nums text-slate-900">{p.stock}</td>
+								<td class="text-right tabular-nums text-slate-500">{p.stock_minimo}</td>
+								<td>
+									<div class="flex gap-1.5">
+										<button onclick={() => abrirEditar(p)} class="btn-secondary btn-sm">
+											Editar
+										</button>
+										<button onclick={() => abrirAjuste(p)} class="btn-secondary btn-sm">
+											Stock
+										</button>
+										<button
+											onclick={() => eliminar(p)}
+											class="btn-sm rounded-lg border border-rose-200 bg-white text-rose-600 transition hover:bg-rose-50"
+										>
+											Baja
+										</button>
+									</div>
+								</td>
+							</tr>
+						{/each}
+					{/if}
+				</tbody>
+			</table>
+		</div>
 	</div>
 
-	<div class="mt-3 flex items-center justify-between text-sm text-slate-600">
-		<span>{productos.length} producto(s)</span>
+	<div class="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-600">
+		<span>{productos.length} producto(s) en total</span>
 		<div class="flex items-center gap-2">
 			<button
 				onclick={() => (pagina = Math.max(1, pagina - 1))}
 				disabled={pagina <= 1}
-				class="rounded border border-slate-300 px-3 py-1 disabled:opacity-40"
+				class="btn-secondary btn-sm"
 			>
 				‹ Anterior
 			</button>
-			<span>Página {pagina} de {paginas}</span>
+			<span class="px-2 text-xs font-semibold text-slate-500">
+				Página {pagina} de {paginas}
+			</span>
 			<button
 				onclick={() => (pagina = Math.min(paginas, pagina + 1))}
 				disabled={pagina >= paginas}
-				class="rounded border border-slate-300 px-3 py-1 disabled:opacity-40"
+				class="btn-secondary btn-sm"
 			>
 				Siguiente ›
 			</button>
@@ -352,92 +370,65 @@
 </div>
 
 {#if modalProducto}
-	<div class="fixed inset-0 z-50 flex items-center justify-center">
+	<div class="modal-overlay">
 		<button
 			type="button"
 			aria-label="Cerrar"
-			class="absolute inset-0 bg-black/40"
+			class="absolute inset-0"
 			onclick={() => (modalProducto = false)}
 		></button>
-		<div class="relative z-10 w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-			<h2 class="mb-4 text-lg font-bold">{editandoId === null ? 'Nuevo producto' : 'Editar producto'}</h2>
+		<div class="modal-panel max-w-md">
+			<div class="mb-5">
+				<p class="eyebrow">Inventario</p>
+				<h2 class="modal-title mt-1">
+					{editandoId === null ? 'Nuevo producto' : 'Editar producto'}
+				</h2>
+			</div>
 			<form
 				onsubmit={(e) => {
 					e.preventDefault();
 					void guardarProducto();
 				}}
-				class="space-y-3"
+				class="space-y-4"
 			>
-				<label class="block">
-					<span class="text-xs text-slate-600">Nombre *</span>
-					<input
-						bind:value={fNombre}
-						type="text"
-						class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-					/>
+				<label class="label">
+					Nombre *
+					<input bind:value={fNombre} type="text" class="input" />
 				</label>
-				<label class="block">
-					<span class="text-xs text-slate-600">Código de barras (8, 12 o 13 dígitos) *</span>
-					<input
-						bind:value={fBarcode}
-						type="text"
-						inputmode="numeric"
-						class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-					/>
+				<label class="label">
+					Código de barras (8, 12 o 13 dígitos) *
+					<input bind:value={fBarcode} type="text" inputmode="numeric" class="input" />
 				</label>
 				<div class="grid grid-cols-2 gap-3">
-					<label class="block">
-						<span class="text-xs text-slate-600">Precio de venta ($) *</span>
-						<input
-							bind:value={fPrecioVenta}
-							type="text"
-							inputmode="decimal"
-							class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-						/>
+					<label class="label">
+						Precio de venta ($) *
+						<input bind:value={fPrecioVenta} type="text" inputmode="decimal" class="input" />
 					</label>
-					<label class="block">
-						<span class="text-xs text-slate-600">Precio de costo ($)</span>
-						<input
-							bind:value={fPrecioCosto}
-							type="text"
-							inputmode="decimal"
-							class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-						/>
+					<label class="label">
+						Precio de costo ($)
+						<input bind:value={fPrecioCosto} type="text" inputmode="decimal" class="input" />
 					</label>
 				</div>
 				<div class="grid grid-cols-2 gap-3">
 					{#if editandoId === null}
-						<label class="block">
-							<span class="text-xs text-slate-600">Stock inicial</span>
-							<input
-								bind:value={fStock}
-								type="number"
-								min="0"
-								class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-							/>
+						<label class="label">
+							Stock inicial
+							<input bind:value={fStock} type="number" min="0" class="input" />
 						</label>
 					{/if}
-					<label class="block">
-						<span class="text-xs text-slate-600">Stock mínimo de alerta</span>
-						<input
-							bind:value={fStockMinimo}
-							type="number"
-							min="0"
-							class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-						/>
+					<label class="label">
+						Stock mínimo de alerta
+						<input bind:value={fStockMinimo} type="number" min="0" class="input" />
 					</label>
 				</div>
 				{#if editandoId !== null}
-					<p class="text-xs text-slate-500">
+					<p class="rounded-xl bg-slate-50 px-3.5 py-2.5 text-xs leading-relaxed text-slate-500">
 						El stock se modifica con la acción «Stock» (ajuste auditado con motivo).
 					</p>
 				{/if}
-				<label class="block">
-					<span class="text-xs text-slate-600">Categoría</span>
-					<select
-						bind:value={fCategoriaId}
-						class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-					>
+				<label class="label">
+					Categoría
+					<select bind:value={fCategoriaId} class="select">
 						<option value={null}>Sin categoría</option>
 						{#each categorias as categoria (categoria.id)}
 							<option value={categoria.id}>{categoria.nombre}</option>
@@ -446,25 +437,23 @@
 				</label>
 
 				{#if mostrarNuevaCategoria}
-					<div class="rounded-lg border border-slate-200 p-3">
-						<p class="text-xs font-medium text-slate-600">Nueva categoría</p>
+					<div class="rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+						<p class="text-xs font-bold uppercase tracking-wide text-slate-500">
+							Nueva categoría
+						</p>
 						<div class="mt-2 flex gap-2">
 							<input
 								bind:value={fCatNombre}
 								type="text"
 								placeholder="Nombre"
-								class="flex-1 rounded-lg border border-slate-300 px-2 py-1"
+								class="input flex-1"
 							/>
 							<input
 								bind:value={fCatColor}
 								type="color"
-								class="h-9 w-10 rounded border border-slate-300"
+								class="h-10 w-12 rounded-lg border border-slate-200 bg-white p-1"
 							/>
-							<button
-								onclick={() => void guardarCategoria()}
-								type="button"
-								class="rounded-lg bg-blue-600 px-3 py-1 text-white"
-							>
+							<button onclick={() => void guardarCategoria()} type="button" class="btn-primary btn-sm">
 								Guardar
 							</button>
 						</div>
@@ -473,25 +462,17 @@
 					<button
 						type="button"
 						onclick={() => (mostrarNuevaCategoria = true)}
-						class="text-xs text-blue-600 hover:underline"
+						class="text-xs font-semibold text-indigo-600 hover:text-indigo-700 hover:underline"
 					>
 						+ Nueva categoría
 					</button>
 				{/if}
 
-				<div class="flex justify-end gap-2 pt-2">
-					<button
-						type="button"
-						onclick={() => (modalProducto = false)}
-						class="rounded-lg border border-slate-300 px-4 py-2 text-sm"
-					>
+				<div class="flex justify-end gap-2 border-t border-slate-100 pt-4">
+					<button type="button" onclick={() => (modalProducto = false)} class="btn-secondary">
 						Cancelar
 					</button>
-					<button
-						type="submit"
-						disabled={guardando}
-						class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-					>
+					<button type="submit" disabled={guardando} class="btn-primary">
 						{guardando ? 'Guardando…' : 'Guardar'}
 					</button>
 				</div>
@@ -501,44 +482,43 @@
 {/if}
 
 {#if modalStock}
-	<div class="fixed inset-0 z-50 flex items-center justify-center">
+	<div class="modal-overlay">
 		<button
 			type="button"
 			aria-label="Cerrar"
-			class="absolute inset-0 bg-black/40"
+			class="absolute inset-0"
 			onclick={() => (modalStock = false)}
 		></button>
-		<div class="relative z-10 w-full max-w-sm rounded-xl bg-white p-6 shadow-xl">
-			<h2 class="mb-1 text-lg font-bold">Ajustar stock</h2>
-			{#if stockProducto}
-				<p class="mb-4 text-sm text-slate-600">
-					{stockProducto.nombre} · actual: <span class="font-semibold">{stockProducto.stock}</span>
-				</p>
-			{/if}
+		<div class="modal-panel max-w-sm">
+			<div class="mb-4">
+				<p class="eyebrow">Auditoría</p>
+				<h2 class="modal-title mt-1">Ajustar stock</h2>
+				{#if stockProducto}
+					<p class="mt-1 text-sm text-slate-500">
+						{stockProducto.nombre} · actual:
+						<span class="font-bold text-slate-800">{stockProducto.stock}</span>
+					</p>
+				{/if}
+			</div>
 			<form
 				onsubmit={(e) => {
 					e.preventDefault();
 					void guardarAjuste();
 				}}
-				class="space-y-3"
+				class="space-y-4"
 			>
-				<label class="block">
-					<span class="text-xs text-slate-600">Stock nuevo *</span>
-					<input
-						bind:value={sNuevo}
-						type="number"
-						min="0"
-						class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-					/>
+				<label class="label">
+					Stock nuevo *
+					<input bind:value={sNuevo} type="number" min="0" class="input" />
 				</label>
-				<label class="block">
-					<span class="text-xs text-slate-600">Motivo *</span>
+				<label class="label">
+					Motivo *
 					<input
 						bind:value={sMotivo}
 						type="text"
 						list="motivosComunes"
 						placeholder="recuento, rotura, vencimiento…"
-						class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+						class="input"
 					/>
 					<datalist id="motivosComunes">
 						<option value="recuento"></option>
@@ -548,28 +528,15 @@
 						<option value="devolución"></option>
 					</datalist>
 				</label>
-				<label class="block">
-					<span class="text-xs text-slate-600">Operador</span>
-					<input
-						bind:value={sOperador}
-						type="text"
-						placeholder="Opcional"
-						class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-					/>
+				<label class="label">
+					Operador
+					<input bind:value={sOperador} type="text" placeholder="Opcional" class="input" />
 				</label>
-				<div class="flex justify-end gap-2 pt-2">
-					<button
-						type="button"
-						onclick={() => (modalStock = false)}
-						class="rounded-lg border border-slate-300 px-4 py-2 text-sm"
-					>
+				<div class="flex justify-end gap-2 border-t border-slate-100 pt-4">
+					<button type="button" onclick={() => (modalStock = false)} class="btn-secondary">
 						Cancelar
 					</button>
-					<button
-						type="submit"
-						disabled={guardando}
-						class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-					>
+					<button type="submit" disabled={guardando} class="btn-success">
 						{guardando ? 'Guardando…' : 'Confirmar'}
 					</button>
 				</div>

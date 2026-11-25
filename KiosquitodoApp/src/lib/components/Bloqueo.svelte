@@ -38,9 +38,12 @@
 	}
 </script>
 
-<div class="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/70 p-4">
-	<div class="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
-		<h2 class="text-xl font-bold text-slate-900">Kiosco bloqueado</h2>
+<div class="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/75 p-4 backdrop-blur-sm">
+	<div class="modal-panel max-w-sm">
+		<div class="grid h-11 w-11 place-items-center rounded-xl bg-gradient-to-br from-indigo-500 to-sky-500 text-lg font-black text-white shadow-lg shadow-indigo-950/30">
+			K
+		</div>
+		<h2 class="modal-title mt-4">Kiosco bloqueado</h2>
 		<p class="mt-1 text-sm text-slate-500">
 			Ingresá el PIN de 4 a 6 dígitos para volver a operar.
 		</p>
@@ -61,18 +64,18 @@
 				inputmode="numeric"
 				autocomplete="off"
 				maxlength="6"
-				placeholder="PIN"
-				class="w-full rounded-lg border border-slate-300 px-3 py-2 text-center text-lg tracking-widest focus:border-blue-500 focus:outline-none"
+				placeholder="••••"
+				class="input py-3 text-center text-xl tracking-[0.5em]"
 			/>
 
 			{#if error}
-				<p class="mt-2 text-sm text-red-600" role="alert">{error}</p>
+				<p class="alert-error mt-3" role="alert">{error}</p>
 			{/if}
 
 			<button
 				type="submit"
 				disabled={verificando || pin.length === 0}
-				class="mt-4 w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+				class="btn-primary mt-4 w-full py-3"
 			>
 				{verificando ? 'Verificando…' : 'Desbloquear'}
 			</button>

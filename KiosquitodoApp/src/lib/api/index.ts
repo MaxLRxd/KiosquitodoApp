@@ -156,3 +156,23 @@ export function guardarConfiguracion(
 ): Promise<ConfiguracionApp> {
 	return ejecutar<ConfiguracionApp>('guardar_configuracion', { configuracion });
 }
+
+/** ¿Hay un PIN configurado? El backend nunca devuelve el hash. */
+export function pinConfigurado(): Promise<boolean> {
+	return ejecutar<boolean>('pin_configurado', {});
+}
+
+/** Guarda el PIN (4-6 dígitos) como hash + salt; devuelve true si quedó activo. */
+export function establecerPin(pin: string): Promise<boolean> {
+	return ejecutar<boolean>('establecer_pin', { pin });
+}
+
+/** Verifica el PIN para desbloquear. Nunca expone el hash. */
+export function verificarPin(pin: string): Promise<boolean> {
+	return ejecutar<boolean>('verificar_pin', { pin });
+}
+
+/** Quita el PIN y desactiva el bloqueo por inactividad. */
+export function eliminarPin(): Promise<void> {
+	return ejecutar<void>('eliminar_pin', {});
+}

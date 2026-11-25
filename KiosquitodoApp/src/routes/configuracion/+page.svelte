@@ -3,11 +3,14 @@
 	import { isTauri } from '@tauri-apps/api/core';
 	import {
 		crearBackupManual,
+		eliminarPin,
+		establecerPin,
 		guardarConfiguracion,
 		obtenerConfiguracion,
-		obtenerRutas
+		obtenerRutas,
+		pinConfigurado
 	} from '$lib/api';
-	import { notificar } from '$lib/stores/app.svelte';
+	import { appState, notificar } from '$lib/stores/app.svelte';
 	import type { ConfiguracionApp, RutasApp } from '$lib/types';
 
 	const enTauri = isTauri();
@@ -17,6 +20,10 @@
 	let ultimoBackup = $state<string | null>(null);
 	let creando = $state(false);
 	let guardando = $state(false);
+	let tienePin = $state(false);
+	let pinNuevo = $state('');
+	let pinConfirmar = $state('');
+	let guardandoPin = $state(false);
 
 	onMount(() => {
 		void cargarDatos();
@@ -24,12 +31,16 @@
 
 	async function cargarDatos(): Promise<void> {
 		try {
-			const [rutasLeidas, preferencias] = await Promise.all([
+			const [rutasLeidas, preferencias, hayPin] = await Promise.all([
 				obtenerRutas(),
-				obtenerConfiguracion()
+				obtenerConfiguracion(),
+				pinConfigurado()
 			]);
 			rutas = rutasLeidas;
 			configuracion = preferencias;
+			tienePin = hayPin;
+			appState.inactividadMinutos = preferencias.inactividad_minutos;
+			appState.pinConfigurado = hayPin;
 		} catch (e) {
 			notificar((e as Error).message, 'error', true);
 		}
@@ -50,11 +61,48 @@
 		guardando = true;
 		try {
 			configuracion = await guardarConfiguracion(datos);
+			appState.inactividadMinutos = configuracion.inactividad_minutos;
 			notificar('Preferencias guardadas', 'success');
 		} catch (e) {
 			notificar((e as Error).message, 'error', true);
 		} finally {
 			guardando = false;
+		}
+	}
+
+	async function configurarPin(): Promise<void> {
+		if (guardandoPin || !pinNuevo) return;
+		if (pinNuevo !== pinConfirmar) {
+			notificar('Los PIN no coinciden', 'error');
+			return;
+		}
+		guardandoPin = true;
+		try {
+			tienePin = await establecerPin(pinNuevo);
+			appState.pinConfigurado = tienePin;
+			pinNuevo = '';
+			pinConfirmar = '';
+			notificar(tienePin ? 'PIN configurado' : 'PIN actualizado', 'success');
+		} catch (e) {
+			notificar((e as Error).message, 'error', true);
+		} finally {
+			guardandoPin = false;
+		}
+	}
+
+	async function quitarPin(): Promise<void> {
+		if (guardandoPin) return;
+		guardandoPin = true;
+		try {
+			await eliminarPin();
+			tienePin = false;
+			appState.pinConfigurado = false;
+			appState.bloqueado = false;
+			notificar('PIN quitado. El bloqueo quedó desactivado', 'success');
+		} catch (e) {
+			notificar((e as Error).message, 'error', true);
+		} finally {
+			guardandoPin = false;
 		}
 	}
 
@@ -202,5 +250,75 @@
 		{:else}
 			<p class="mt-4 text-sm text-slate-500">Cargando preferencias…</p>
 		{/if}
+	</section>
+
+	<section class="mt-6 rounded-xl border border-slate-200 bg-white p-5">
+		<h2 class="text-lg font-bold">Acceso y bloqueo</h2>
+		<p class="text-sm text-slate-500">
+			El PIN se guarda como hash SHA-256 con salt, nunca en claro. Sin PIN configurado no hay
+			bloqueo por inactividad.
+		</p>
+
+		<p class="mt-4 text-sm">
+			Estado:
+			<span class="font-semibold {tienePin ? 'text-green-700' : 'text-slate-600'}">
+				{tienePin ? 'PIN configurado' : 'Sin PIN (bloqueo desactivado)'}
+			</span>
+		</p>
+
+		<div class="mt-4 grid gap-4 sm:grid-cols-2">
+			<label class="flex flex-col gap-1 text-sm font-medium text-slate-700">
+				Nuevo PIN (4-6 dígitos)
+				<input
+					type="password"
+					inputmode="numeric"
+					autocomplete="new-password"
+					maxlength="6"
+					bind:value={pinNuevo}
+					class="rounded-md border border-slate-300 px-3 py-1.5 tracking-widest"
+				/>
+			</label>
+			<label class="flex flex-col gap-1 text-sm font-medium text-slate-700">
+				Confirmar PIN
+				<input
+					type="password"
+					inputmode="numeric"
+					autocomplete="new-password"
+					maxlength="6"
+					bind:value={pinConfirmar}
+					class="rounded-md border border-slate-300 px-3 py-1.5 tracking-widest"
+				/>
+			</label>
+		</div>
+
+		<div class="mt-5 flex flex-wrap items-center gap-3">
+			<button
+				onclick={() => void configurarPin()}
+				disabled={guardandoPin || !pinNuevo}
+				class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+			>
+				{guardandoPin ? 'Guardando…' : tienePin ? 'Cambiar PIN' : 'Configurar PIN'}
+			</button>
+			{#if tienePin}
+				<button
+					onclick={() => void quitarPin()}
+					disabled={guardandoPin}
+					class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+				>
+					Quitar PIN
+				</button>
+				<button
+					onclick={() => (appState.bloqueado = true)}
+					class="rounded-lg border border-amber-300 px-4 py-2 text-sm font-medium text-amber-800 hover:bg-amber-50"
+				>
+					Probar bloqueo
+				</button>
+			{/if}
+		</div>
+
+		<p class="mt-3 text-xs text-slate-500">
+			El bloqueo salta después de {configuracion?.inactividad_minutos ?? 5} minutos sin
+			interacción. Ajustá ese valor en Preferencias (0 = desactivado).
+		</p>
 	</section>
 </div>

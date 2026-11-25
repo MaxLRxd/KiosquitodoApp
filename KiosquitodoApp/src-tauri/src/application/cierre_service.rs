@@ -81,9 +81,7 @@ fn validar_fecha(fecha: &str) -> AppResult<()> {
         && f[5..7].chars().all(|c| c.is_ascii_digit())
         && f[8..10].chars().all(|c| c.is_ascii_digit());
     if !valida {
-        return Err(AppError::negocio(
-            "La fecha debe tener formato YYYY-MM-DD",
-        ));
+        return Err(AppError::negocio("La fecha debe tener formato YYYY-MM-DD"));
     }
     Ok(())
 }

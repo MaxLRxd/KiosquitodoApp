@@ -1,4 +1,4 @@
-﻿//! Casos de uso de POS: registrar venta (validación de stock y medios mixtos)
+//! Casos de uso de POS: registrar venta (validación de stock y medios mixtos)
 //! y devoluciones.
 //!
 //! El servicio valida la coherencia del pedido (dominio) y que exista stock
@@ -147,7 +147,13 @@ mod tests {
         }
 
         fn descontar(&self, id: i64, cantidad: i64) {
-            if let Some(p) = self.productos.lock().unwrap().iter_mut().find(|p| p.id == id) {
+            if let Some(p) = self
+                .productos
+                .lock()
+                .unwrap()
+                .iter_mut()
+                .find(|p| p.id == id)
+            {
                 p.stock -= cantidad;
             }
         }
@@ -254,7 +260,13 @@ mod tests {
         }
 
         fn obtener_venta(&self, id: i64) -> AppResult<Option<Venta>> {
-            Ok(self.ventas.lock().unwrap().iter().find(|v| v.id == id).cloned())
+            Ok(self
+                .ventas
+                .lock()
+                .unwrap()
+                .iter()
+                .find(|v| v.id == id)
+                .cloned())
         }
 
         fn listar_ventas_dia(&self, _fecha: &str) -> AppResult<Vec<Venta>> {
@@ -281,7 +293,9 @@ mod tests {
             Ok(())
         }
 
-        fn listar_devoluciones(&self) -> AppResult<Vec<crate::domain::venta::DevolucionRegistrada>> {
+        fn listar_devoluciones(
+            &self,
+        ) -> AppResult<Vec<crate::domain::venta::DevolucionRegistrada>> {
             Ok(Vec::new())
         }
     }

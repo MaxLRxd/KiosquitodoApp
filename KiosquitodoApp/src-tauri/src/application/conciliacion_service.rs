@@ -253,7 +253,13 @@ mod tests {
         }
 
         fn obtener_venta(&self, id: i64) -> AppResult<Option<Venta>> {
-            Ok(self.ventas.lock().unwrap().iter().find(|v| v.id == id).cloned())
+            Ok(self
+                .ventas
+                .lock()
+                .unwrap()
+                .iter()
+                .find(|v| v.id == id)
+                .cloned())
         }
 
         fn listar_ventas_dia(&self, _fecha: &str) -> AppResult<Vec<Venta>> {
@@ -273,7 +279,9 @@ mod tests {
             unreachable!("no se usa en estos tests")
         }
 
-        fn listar_devoluciones(&self) -> AppResult<Vec<crate::domain::venta::DevolucionRegistrada>> {
+        fn listar_devoluciones(
+            &self,
+        ) -> AppResult<Vec<crate::domain::venta::DevolucionRegistrada>> {
             unreachable!("no se usa en estos tests")
         }
     }
@@ -333,7 +341,11 @@ mod tests {
 
     #[tokio::test]
     async fn sincronizar_vacio_no_cambia_nada() {
-        let svc = service(MockMp::con(vec![]), MockPagos::default(), MockVentas::default());
+        let svc = service(
+            MockMp::con(vec![]),
+            MockPagos::default(),
+            MockVentas::default(),
+        );
         let res = svc.sincronizar("tok", "a", "b").await.unwrap();
         assert_eq!(res.nuevos, 0);
         assert_eq!(res.existentes, 0);
@@ -350,7 +362,11 @@ mod tests {
 
         svc.vincular_pago_a_venta("abc", 7).unwrap();
         assert_eq!(
-            svc.pago_repo.obtener_pago_por_mp_id("abc").unwrap().unwrap().venta_id,
+            svc.pago_repo
+                .obtener_pago_por_mp_id("abc")
+                .unwrap()
+                .unwrap()
+                .venta_id,
             Some(7)
         );
     }

@@ -432,3 +432,34 @@ describe('mock: preferencias', () => {
 		).toThrow(/al menos 1 minuto/);
 	});
 });
+
+describe('mock: PIN y bloqueo', () => {
+	it('pin_configurado arranca en false', async () => {
+		expect(await ejecutarMock<boolean>('pin_configurado')).toBe(false);
+		expect(await ejecutarMock<boolean>('verificar_pin', { pin: '1234' })).toBe(false);
+	});
+
+	it('establecer_pin permite verificar y solo devuelve el estado', async () => {
+		const estado = await ejecutarMock<boolean>('establecer_pin', { pin: '1234' });
+		expect(estado).toBe(true);
+		expect(await ejecutarMock<boolean>('pin_configurado')).toBe(true);
+		expect(await ejecutarMock<boolean>('verificar_pin', { pin: '1234' })).toBe(true);
+		expect(await ejecutarMock<boolean>('verificar_pin', { pin: '9999' })).toBe(false);
+	});
+
+	it('eliminar_pin vuelve a dejar el mock sin PIN', async () => {
+		await ejecutarMock('establecer_pin', { pin: '1234' });
+		await ejecutarMock('eliminar_pin');
+		expect(await ejecutarMock<boolean>('pin_configurado')).toBe(false);
+		expect(await ejecutarMock<boolean>('verificar_pin', { pin: '1234' })).toBe(false);
+	});
+
+	it('establecer_pin valida entre 4 y 6 dígitos', () => {
+		expect(() => ejecutarMock('establecer_pin', { pin: '123' })).toThrow(
+			/entre 4 y 6 dígitos/
+		);
+		expect(() => ejecutarMock('establecer_pin', { pin: '12ab' })).toThrow(
+			/entre 4 y 6 dígitos/
+		);
+	});
+});

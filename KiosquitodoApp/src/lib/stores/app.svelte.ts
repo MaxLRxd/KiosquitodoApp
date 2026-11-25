@@ -11,7 +11,11 @@ export const appState = $state({
 	toasts: [] as Notificacion[],
 	conectado: true,
 	sincronizando: false,
-	ultimoSyncExitoso: null as boolean | null
+	ultimoSyncExitoso: null as boolean | null,
+	// Estado de bloqueo: lo carga y lo gestiona +layout.svelte.
+	pinConfigurado: false,
+	inactividadMinutos: 5,
+	bloqueado: false
 });
 
 let proximoId = 1;

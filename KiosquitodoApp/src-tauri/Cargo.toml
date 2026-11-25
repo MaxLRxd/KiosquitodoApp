@@ -53,6 +53,11 @@ chrono = "0.4"
 ## Errores tipados
 thiserror = "2"
 
+## Seguridad del PIN (hash SHA-256 + salt aleatorio pedido al SO).
+# Ya estaban en Cargo.lock como dependencias indirectas; se declaran para uso directo.
+sha2 = "0.10"
+getrandom = "0.2"
+
 [profile.release]
 panic = "abort"
 codegen-units = 1

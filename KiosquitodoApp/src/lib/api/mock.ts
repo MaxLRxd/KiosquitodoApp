@@ -162,6 +162,38 @@ export function mockGuardarConfiguracion(configuracion: ConfiguracionApp): Confi
 	return { ...configuracionMock };
 }
 
+// El mock guarda el PIN en claro a propósito: solo reproduce el contrato IPC.
+// El backend real guarda `hash(salt || pin)` y nunca devuelve el valor.
+let pinMock: string | null = null;
+
+function validarPinMock(pin: string): void {
+	if (!/^\d{4,6}$/.test(pin)) {
+		throw new Error('El PIN debe tener entre 4 y 6 dígitos');
+	}
+}
+
+/** `pin_configurado()`: solo booleano, como el command real. */
+export function mockPinConfigurado(): boolean {
+	return pinMock !== null;
+}
+
+/** `establecer_pin()`: valida y devuelve el estado ya configurado. */
+export function mockEstablecerPin(pin: string): boolean {
+	validarPinMock(pin);
+	pinMock = pin;
+	return true;
+}
+
+/** `verificar_pin()`: compara con el PIN del mock; sin PIN devuelve false. */
+export function mockVerificarPin(pin: string): boolean {
+	return pinMock !== null && pinMock === pin;
+}
+
+/** `eliminar_pin()`: desactiva el bloqueo. */
+export function mockEliminarPin(): void {
+	pinMock = null;
+}
+
 export const tiendaMock: TiendaMock = crearTienda();
 
 export function reiniciarTiendaMock(): void {
@@ -178,6 +210,7 @@ export function reiniciarTiendaMock(): void {
 	tiendaMock.proximoIdCierre = fresca.proximoIdCierre;
 	tiendaMock.proximoIdDevolucion = fresca.proximoIdDevolucion;
 	configuracionMock = configuracionPorDefecto();
+	pinMock = null;
 }
 
 /** `SELECT * FROM productos WHERE barcode = ?1 AND activo = 1`. */
@@ -642,6 +675,15 @@ export function ejecutarMock<T>(comando: string, args: Record<string, unknown> =
 			return Promise.resolve(
 				mockGuardarConfiguracion(args.configuracion as ConfiguracionApp) as T
 			);
+		case 'pin_configurado':
+			return Promise.resolve(mockPinConfigurado() as T);
+		case 'establecer_pin':
+			return Promise.resolve(mockEstablecerPin(args.pin as string) as T);
+		case 'verificar_pin':
+			return Promise.resolve(mockVerificarPin(args.pin as string) as T);
+		case 'eliminar_pin':
+			mockEliminarPin();
+			return Promise.resolve(undefined as T);
 		default:
 			return Promise.reject(new Error(`Comando sin implementación en el mock: ${comando}`));
 	}

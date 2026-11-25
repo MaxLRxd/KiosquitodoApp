@@ -1,8 +1,9 @@
 ﻿//! Commands Tauri del módulo de configuración del sistema: rutas, preferencias,
-//! autostart y backups. La integración con Mercado Pago (token, keyring y sync) queda
-//! DIFERIDA por decisión del equipo (P16 sin MP).
+//! PIN, autostart y backups. La integración con Mercado Pago (token, keyring y
+//! sync) queda DIFERIDA por decisión del equipo (P16 sin MP).
 
 use crate::application::config_service::{ConfigService, ConfiguracionApp};
+use crate::application::pin_service::PinService;
 use crate::config::AppConfig;
 use crate::infrastructure::db::repos::ConfigSqlite;
 use crate::infrastructure::db::DbConn;
@@ -71,6 +72,52 @@ pub fn guardar_configuracion(
         guardada.sonidos_activos
     );
     Ok(guardada)
+}
+
+/// Arma el servicio de PIN sobre la misma BD de configuración.
+fn servicio_pin(db: &DbConn) -> PinService<ConfigSqlite> {
+    PinService::new(ConfigSqlite::new(db.clone()))
+}
+
+/// ¿Hay un PIN configurado? Nunca devuelve el hash ni el salt.
+#[tauri::command]
+pub fn pin_configurado(db: State<'_, DbConn>) -> Result<bool, String> {
+    servicio_pin(db.inner())
+        .configurado()
+        .map_err(|e| e.to_string())
+}
+
+/// Guarda un PIN nuevo (4-6 dígitos) como hash + salt. Devuelve solo el estado.
+#[tauri::command]
+pub fn establecer_pin(db: State<'_, DbConn>, pin: String) -> Result<bool, String> {
+    let svc = servicio_pin(db.inner());
+    svc.establecer(&pin).map_err(|e| e.to_string())?;
+    log::info!("PIN configurado (hash SHA-256 con salt)");
+    svc.configurado().map_err(|e| e.to_string())
+}
+
+/// Compara el PIN ingresado. Devuelve `true` solo si coincide; nunca el hash.
+#[tauri::command]
+pub fn verificar_pin(db: State<'_, DbConn>, pin: String) -> Result<bool, String> {
+    let correcto = servicio_pin(db.inner())
+        .verificar(&pin)
+        .map_err(|e| e.to_string())?;
+    if correcto {
+        log::info!("Desbloqueo por PIN correcto");
+    } else {
+        log::warn!("Intento de desbloqueo con PIN incorrecto");
+    }
+    Ok(correcto)
+}
+
+/// Quita el PIN y, con él, el bloqueo por inactividad.
+#[tauri::command]
+pub fn eliminar_pin(db: State<'_, DbConn>) -> Result<(), String> {
+    servicio_pin(db.inner())
+        .eliminar()
+        .map_err(|e| e.to_string())?;
+    log::info!("PIN eliminado");
+    Ok(())
 }
 
 /// ¿Está habilitado el arranque automático al iniciar sesión?

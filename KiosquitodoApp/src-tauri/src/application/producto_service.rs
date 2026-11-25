@@ -1,4 +1,4 @@
-﻿//! Casos de uso de inventario: CRUD, búsqueda, paginación y ajuste de stock.
+//! Casos de uso de inventario: CRUD, búsqueda, paginación y ajuste de stock.
 //!
 //! El servicio orquesta la lógica pura del dominio (validaciones) y delega la
 //! persistencia al `ProductoRepo` (inversión de dependencias, capa hexagonal).
@@ -100,16 +100,24 @@ impl<R: ProductoRepo> ProductoService<R> {
 /// Valida un `Producto` existente (mismas reglas que `validar_nuevo_producto`).
 fn validar_producto_actualizado(p: &Producto) -> AppResult<()> {
     if p.nombre.trim().is_empty() {
-        return Err(AppError::negocio("El nombre del producto no puede estar vacío"));
+        return Err(AppError::negocio(
+            "El nombre del producto no puede estar vacío",
+        ));
     }
     if !validar_barcode(p.barcode.as_deref().unwrap_or("")) {
-        return Err(AppError::negocio("El código de barras debe tener 8, 12 o 13 dígitos"));
+        return Err(AppError::negocio(
+            "El código de barras debe tener 8, 12 o 13 dígitos",
+        ));
     }
     if !validar_precio(p.precio_venta) {
-        return Err(AppError::negocio("El precio de venta debe ser mayor a cero (centavos)"));
+        return Err(AppError::negocio(
+            "El precio de venta debe ser mayor a cero (centavos)",
+        ));
     }
     if !validar_costo(p.precio_costo) {
-        return Err(AppError::negocio("El precio de costo no puede ser negativo (centavos)"));
+        return Err(AppError::negocio(
+            "El precio de costo no puede ser negativo (centavos)",
+        ));
     }
     if !validar_stock(p.stock) {
         return Err(AppError::negocio("El stock no puede ser negativo"));
@@ -146,7 +154,13 @@ mod tests {
             ProductoService::new(Self::nuevo())
         }
 
-        fn insertar_directo(&self, nombre: &str, barcode: &str, precio: i64, stock: i64) -> Producto {
+        fn insertar_directo(
+            &self,
+            nombre: &str,
+            barcode: &str,
+            precio: i64,
+            stock: i64,
+        ) -> Producto {
             let mut sig = self.siguiente_id.lock().unwrap();
             let p = Producto {
                 id: *sig,

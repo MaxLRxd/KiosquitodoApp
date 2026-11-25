@@ -145,6 +145,11 @@ export function crearBackupManual(): Promise<string> {
 	return ejecutar<string>('crear_backup_manual', {});
 }
 
+/** backup diario de hoy, o `null` si ya se creó al arrancar. */
+export function verificarBackupDiario(): Promise<string | null> {
+	return ejecutar<string | null>('verificar_backup_diario', {});
+}
+
 /** Lee las preferencias guardadas (defaults para claves ausentes). */
 export function obtenerConfiguracion(): Promise<ConfiguracionApp> {
 	return ejecutar<ConfiguracionApp>('obtener_configuracion', {});

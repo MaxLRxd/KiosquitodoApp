@@ -350,6 +350,23 @@ mod tests {
     }
 
     #[test]
+    fn actualizar_no_cambia_el_stock() {
+        let r = repo();
+        let creado = r
+            .crear_producto(&nuevo("Agua", "7790001234567", 1200))
+            .unwrap();
+        let mut editado = creado.clone();
+        editado.stock = 999;
+        editado.precio_venta = 1500;
+
+        r.actualizar_producto(&editado).unwrap();
+
+        let guardado = r.buscar_por_id(creado.id).unwrap().unwrap();
+        assert_eq!(guardado.stock, 10);
+        assert_eq!(guardado.precio_venta, 1500);
+    }
+
+    #[test]
     fn barcode_unico_rechaza_duplicado() {
         let r = repo();
         r.crear_producto(&nuevo("A", "7790001234567", 100)).unwrap();

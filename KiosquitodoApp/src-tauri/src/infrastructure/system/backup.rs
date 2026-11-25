@@ -3,6 +3,7 @@
 //! Los backups se generan con `VACUUM INTO`, que produce una copia
 //! consistente y compacta aunque la BD esté en modo WAL.
 
+use crate::config::defaults;
 use crate::errors::AppResult;
 use crate::infrastructure::db::DbConn;
 use std::path::{Path, PathBuf};
@@ -17,11 +18,44 @@ pub fn crear_backup(db: &DbConn, backup_dir: &Path) -> AppResult<PathBuf> {
 
     let sello = chrono::Local::now().format("%Y%m%d_%H%M%S");
     let destino = backup_dir.join(format!("kiosco_{sello}.db"));
-    let sql = format!("VACUUM INTO '{}'", path_sql_literal(&destino.to_string_lossy()));
+    let sql = format!(
+        "VACUUM INTO '{}'",
+        path_sql_literal(&destino.to_string_lossy())
+    );
 
     let conn = db.conn.lock().expect("mutex de BD envenenado");
     conn.execute_batch(&sql)?;
     Ok(destino)
+}
+
+/// Backup del día: crea uno si todavía no existe `kiosco_AAAAMMDD_*.db` y
+/// limpia los viejos. Devuelve la ruta creada, o `None` si el día ya tenía.
+pub fn backup_diario_si_necesario(db: &DbConn, backup_dir: &Path) -> AppResult<Option<PathBuf>> {
+    std::fs::create_dir_all(backup_dir)?;
+
+    let sello = chrono::Local::now().format("%Y%m%d").to_string();
+    let prefijo = format!("kiosco_{sello}_");
+    let ya_hay = std::fs::read_dir(backup_dir)?
+        .filter_map(|e| e.ok())
+        .any(|e| {
+            let nombre_archivo = e.file_name();
+            let nombre = nombre_archivo.to_string_lossy();
+            e.path().extension().and_then(|ext| ext.to_str()) == Some("db")
+                && nombre.starts_with(&prefijo)
+        });
+
+    let eliminados = limpiar_backups_viejos(backup_dir, defaults::BACKUP_RETENCION_DIAS)?;
+    if eliminados > 0 {
+        log::info!("Backups viejos eliminados: {eliminados}");
+    }
+
+    if ya_hay {
+        return Ok(None);
+    }
+
+    let ruta = crear_backup(db, backup_dir)?;
+    log::info!("Backup diario creado en {}", ruta.display());
+    Ok(Some(ruta))
 }
 
 /// Elimina los backups más antiguos que `retencion_dias`. Devuelve cuántos
@@ -57,7 +91,6 @@ pub fn limpiar_backups_viejos(backup_dir: &Path, retencion_dias: u32) -> AppResu
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::defaults;
 
     #[test]
     fn literales_de_ruta_se_sanean() {
@@ -67,7 +100,11 @@ mod tests {
 
     #[test]
     fn limpiar_sin_carpeta_no_falla() {
-        assert_eq!(limpiar_backups_viejos(Path::new("no_existe"), defaults::BACKUP_RETENCION_DIAS).unwrap(), 0);
+        assert_eq!(
+            limpiar_backups_viejos(Path::new("no_existe"), defaults::BACKUP_RETENCION_DIAS)
+                .unwrap(),
+            0
+        );
     }
 
     #[test]
@@ -94,6 +131,23 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM productos", [], |r| r.get(0))
             .unwrap();
         assert_eq!(n, 1);
+
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn backup_diario_solo_crea_uno_por_dia() {
+        let dir = std::env::temp_dir().join(format!("kiosco_diario_{}", std::process::id()));
+        std::fs::remove_dir_all(&dir).ok();
+        let db = DbConn::abrir_en_memoria().unwrap();
+
+        let primera = backup_diario_si_necesario(&db, &dir).unwrap();
+        assert!(primera.is_some());
+        assert!(primera.unwrap().exists());
+
+        let segunda = backup_diario_si_necesario(&db, &dir).unwrap();
+        assert!(segunda.is_none());
+        assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 1);
 
         std::fs::remove_dir_all(&dir).ok();
     }

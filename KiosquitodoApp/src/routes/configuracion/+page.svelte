@@ -12,7 +12,8 @@
 		obtenerRutas,
 		pinConfigurado,
 		seleccionarCarpetaBackups,
-		tokenMpConfigurado
+		tokenMpConfigurado,
+		verificarBackupDiario
 	} from '$lib/api';
 	import { appState, notificar } from '$lib/stores/app.svelte';
 	import type { ConfiguracionApp, RutasApp } from '$lib/types';
@@ -23,6 +24,8 @@
 	let configuracion = $state<ConfiguracionApp | null>(null);
 	let ultimoBackup = $state<string | null>(null);
 	let creando = $state(false);
+	let verificandoBackupDiario = $state(false);
+	let resultadoBackupDiario = $state<string | null>(null);
 	let guardando = $state(false);
 	let tienePin = $state(false);
 	let pinNuevo = $state('');
@@ -175,6 +178,22 @@
 			creando = false;
 		}
 	}
+
+	async function probarBackupDiario(): Promise<void> {
+		if (verificandoBackupDiario) return;
+		verificandoBackupDiario = true;
+		try {
+			const ruta = await verificarBackupDiario();
+			resultadoBackupDiario = ruta
+				? `Creado ahora: ${ruta}`
+				: 'Ya existe el backup de hoy (el arranque lo verificó)';
+			notificar('Backup diario verificado', 'success');
+		} catch (e) {
+			notificar((e as Error).message, 'error', true);
+		} finally {
+			verificandoBackupDiario = false;
+		}
+	}
 </script>
 
 <div class="p-6">
@@ -245,9 +264,25 @@
 			{/if}
 		</div>
 
+		<div class="mt-4 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-4">
+			<button
+				onclick={() => void probarBackupDiario()}
+				disabled={verificandoBackupDiario || !rutas}
+				class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+			>
+				{verificandoBackupDiario ? 'Verificando…' : 'Probar backup automático'}
+			</button>
+			{#if resultadoBackupDiario}
+				<span class="text-xs text-slate-600">
+					Resultado: <span class="font-mono">{resultadoBackupDiario}</span>
+				</span>
+			{/if}
+		</div>
+
 		<p class="mt-3 text-xs text-slate-500">
 			Los eventos se escriben en <span class="font-mono">kiosco_YYYY-MM-DD.log</span> dentro del
-			directorio de logs.
+			directorio de logs. El plugin de actualizaciones está registrado, pero todavía no hay
+			endpoint ni firma: la app no busca versiones nuevas.
 		</p>
 	</section>
 

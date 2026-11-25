@@ -223,6 +223,18 @@ export function mockSeleccionarCarpetaBackups(): string {
 	return 'mock://BackupsElegidos';
 }
 
+// El flag simula el chequeo del arranque: primero crea el backup del día y
+// las siguientes llamadas devuelven null hasta que se reinicia el mock.
+let backupDiarioMockCreado = false;
+
+/** `verificar_backup_diario()`: ruta creada la primera vez, luego `null`. */
+export function mockVerificarBackupDiario(): string | null {
+	if (backupDiarioMockCreado) return null;
+	backupDiarioMockCreado = true;
+	const dia = horaLocalIso().replace(/[-:T]/g, '').slice(0, 8);
+	return `${configuracionMock.backup_dir}/kiosco_${dia}_000000.db`;
+}
+
 export const tiendaMock: TiendaMock = crearTienda();
 
 export function reiniciarTiendaMock(): void {
@@ -241,6 +253,7 @@ export function reiniciarTiendaMock(): void {
 	configuracionMock = configuracionPorDefecto();
 	pinMock = null;
 	tokenMpMock = null;
+	backupDiarioMockCreado = false;
 }
 
 /** `SELECT * FROM productos WHERE barcode = ?1 AND activo = 1`. */
@@ -699,6 +712,8 @@ export function ejecutarMock<T>(comando: string, args: Record<string, unknown> =
 			return Promise.resolve(mockObtenerRutas() as T);
 		case 'crear_backup_manual':
 			return Promise.resolve(mockCrearBackupManual() as T);
+		case 'verificar_backup_diario':
+			return Promise.resolve(mockVerificarBackupDiario() as T);
 		case 'obtener_configuracion':
 			return Promise.resolve(mockObtenerConfiguracion() as T);
 		case 'guardar_configuracion':

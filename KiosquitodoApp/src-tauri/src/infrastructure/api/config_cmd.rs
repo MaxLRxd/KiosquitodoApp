@@ -217,6 +217,16 @@ pub fn crear_backup_manual(db: State<'_, DbConn>) -> Result<String, String> {
     Ok(ruta)
 }
 
+/// Prueba aislada del backup diario: crea el de hoy o devuelve `None` si ya
+/// existe. Es la misma función que se llama al arrancar.
+#[tauri::command]
+pub fn verificar_backup_diario(db: State<'_, DbConn>) -> Result<Option<String>, String> {
+    let dir = backup_dir_configurado(db.inner())?;
+    let ruta = backup::backup_diario_si_necesario(db.inner(), Path::new(&dir))
+        .map_err(|e| e.to_string())?;
+    Ok(ruta.map(|r| r.to_string_lossy().into_owned()))
+}
+
 /// Elimina backups más viejos que `retencion_dias`; devuelve cuántos borró.
 #[tauri::command]
 pub fn limpiar_backups_viejos(db: State<'_, DbConn>, retencion_dias: u32) -> Result<usize, String> {

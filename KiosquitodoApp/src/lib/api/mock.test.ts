@@ -499,4 +499,10 @@ describe('mock: token MP y carpeta de backups', () => {
 		const ruta = await ejecutarMock<string>('crear_backup_manual');
 		expect(ruta).toMatch(/^mock:\/\/OtraCarpeta\/kiosco_\d{14}\.db$/);
 	});
+
+	it('verificar_backup_diario crea el de hoy y luego devuelve null', async () => {
+		const primera = await ejecutarMock<string | null>('verificar_backup_diario');
+		expect(primera).toMatch(/^mock:\/\/.*\/kiosco_\d{8}_000000\.db$/);
+		expect(await ejecutarMock<string | null>('verificar_backup_diario')).toBeNull();
+	});
 });

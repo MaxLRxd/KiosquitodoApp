@@ -5,11 +5,12 @@ pub mod errors;
 pub mod infrastructure;
 pub mod ports;
 
-use infrastructure::api::{
-    caja_cmd, config_cmd, producto_cmd, venta_cmd,
-};
-
+use application::config_service::ConfigService;
+use infrastructure::api::{caja_cmd, config_cmd, producto_cmd, venta_cmd};
+use infrastructure::db::repos::ConfigSqlite;
 use infrastructure::db::DbConn;
+use infrastructure::system::backup;
+use std::path::Path;
 use tauri::Manager;
 
 pub fn run() {
@@ -20,6 +21,9 @@ pub fn run() {
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             None,
         ))
+        // Registrado sin endpoint ni clave pública: no se llama a `check()`,
+        // así que el arranque no depende de un servidor de actualizaciones.
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             let cfg = config::AppConfig::resolver()
                 .map_err(|e| Box::<dyn std::error::Error>::from(e.to_string()))?;
@@ -29,6 +33,24 @@ pub fn run() {
 
             let db = DbConn::abrir(&cfg.db_path)
                 .map_err(|e| Box::<dyn std::error::Error>::from(e.to_string()))?;
+
+            // Usa la carpeta guardada en preferencias (M4); si no se puede
+            // leer, cae a la default y avisa, sin impedir el arranque.
+            let backup_dir = ConfigService::new(
+                ConfigSqlite::new(db.clone()),
+                cfg.backup_dir.to_string_lossy().into_owned(),
+            )
+            .obtener()
+            .map(|configuracion| configuracion.backup_dir)
+            .unwrap_or_else(|e| {
+                log::warn!("No se pudo leer la carpeta de backups: {e}");
+                cfg.backup_dir.to_string_lossy().into_owned()
+            });
+
+            if let Err(e) = backup::backup_diario_si_necesario(&db, Path::new(&backup_dir)) {
+                log::warn!("No se pudo crear el backup diario: {e}");
+            }
+
             app.manage(db);
 
             log::info!("App iniciada. BD: {}", cfg.db_path.display());
@@ -68,6 +90,7 @@ pub fn run() {
             config_cmd::habilitar_autostart,
             config_cmd::deshabilitar_autostart,
             config_cmd::crear_backup_manual,
+            config_cmd::verificar_backup_diario,
             config_cmd::limpiar_backups_viejos,
         ])
         .run(tauri::generate_context!())

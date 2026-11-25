@@ -463,3 +463,40 @@ describe('mock: PIN y bloqueo', () => {
 		);
 	});
 });
+
+describe('mock: token MP y carpeta de backups', () => {
+	it('token_mp_configurado arranca en false', async () => {
+		expect(await ejecutarMock<boolean>('token_mp_configurado')).toBe(false);
+	});
+
+	it('guardar_token_mp devuelve solo el estado y luego se puede quitar', async () => {
+		expect(await ejecutarMock<boolean>('guardar_token_mp', { token: 'TEST-token-123' })).toBe(
+			true
+		);
+		expect(await ejecutarMock<boolean>('token_mp_configurado')).toBe(true);
+		await ejecutarMock('eliminar_token_mp');
+		expect(await ejecutarMock<boolean>('token_mp_configurado')).toBe(false);
+	});
+
+	it('guardar_token_mp rechaza un token vacío', () => {
+		expect(() => ejecutarMock('guardar_token_mp', { token: '   ' })).toThrow(/no puede estar vacío/);
+	});
+
+	it('seleccionar_carpeta_backups devuelve una ruta simulada', async () => {
+		const carpeta = await ejecutarMock<string | null>('seleccionar_carpeta_backups');
+		expect(carpeta).toBe('mock://BackupsElegidos');
+	});
+
+	it('el backup manual usa la carpeta configurada', async () => {
+		await ejecutarMock('guardar_configuracion', {
+			configuracion: {
+				sync_intervalo_minutos: 15,
+				inactividad_minutos: 5,
+				sonidos_activos: true,
+				backup_dir: 'mock://OtraCarpeta'
+			}
+		});
+		const ruta = await ejecutarMock<string>('crear_backup_manual');
+		expect(ruta).toMatch(/^mock:\/\/OtraCarpeta\/kiosco_\d{14}\.db$/);
+	});
+});

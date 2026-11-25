@@ -3,11 +3,11 @@
 //! Cada command es un envoltorio fino: construye el repo SQLite concreto
 //! desde el `DbConn` del estado, instancia el service y devuelve el DTO.
 //!
-//! **Nota de alcance**: la integración con Mercado Pago (sync de pagos,
-//! conciliación online y keyring de token) queda DIFERIDA por decisión del
-//! equipo; aquí solo hay operaciones locales de producto, venta y cierre.
+//! **Nota de alcance**: el token de MP se guarda en el keyring, pero el sync de
+//! pagos y la conciliación online siguen DIFERIDOS por decisión del equipo;
+//! aquí solo hay operaciones locales de producto, venta y cierre.
 
 pub mod caja_cmd;
-pub mod producto_cmd;
 pub mod config_cmd;
+pub mod producto_cmd;
 pub mod venta_cmd;

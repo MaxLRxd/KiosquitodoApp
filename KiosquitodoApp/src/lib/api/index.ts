@@ -176,3 +176,23 @@ export function verificarPin(pin: string): Promise<boolean> {
 export function eliminarPin(): Promise<void> {
 	return ejecutar<void>('eliminar_pin', {});
 }
+
+/** ¿Hay un Access Token de MP guardado? El backend nunca lo devuelve. */
+export function tokenMpConfigurado(): Promise<boolean> {
+	return ejecutar<boolean>('token_mp_configurado', {});
+}
+
+/** Guarda el token en el keyring cifrado y devuelve solo el estado. */
+export function guardarTokenMp(token: string): Promise<boolean> {
+	return ejecutar<boolean>('guardar_token_mp', { token });
+}
+
+/** Elimina el token del keyring. */
+export function eliminarTokenMp(): Promise<void> {
+	return ejecutar<void>('eliminar_token_mp', {});
+}
+
+/** Abre el diálogo nativo; devuelve la carpeta o `null` si se cancela. */
+export function seleccionarCarpetaBackups(): Promise<string | null> {
+	return ejecutar<string | null>('seleccionar_carpeta_backups', {});
+}

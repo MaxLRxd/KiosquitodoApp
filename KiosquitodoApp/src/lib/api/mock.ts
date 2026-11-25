@@ -194,6 +194,35 @@ export function mockEliminarPin(): void {
 	pinMock = null;
 }
 
+// Igual que el PIN: el mock guarda el token en memoria a propósito. El backend
+// real usa el keyring cifrado y nunca lo devuelve al frontend.
+let tokenMpMock: string | null = null;
+
+/** `token_mp_configurado()`: solo booleano. */
+export function mockTokenMpConfigurado(): boolean {
+	return tokenMpMock !== null;
+}
+
+/** `guardar_token_mp()`: valida no vacío y devuelve el estado. */
+export function mockGuardarTokenMp(token: string): boolean {
+	const limpio = token.trim();
+	if (!limpio) {
+		throw new Error('El token de Mercado Pago no puede estar vacío');
+	}
+	tokenMpMock = limpio;
+	return true;
+}
+
+/** `eliminar_token_mp()`: idempotente. */
+export function mockEliminarTokenMp(): void {
+	tokenMpMock = null;
+}
+
+/** `seleccionar_carpeta_backups()`: carpeta simulada distinta de la default. */
+export function mockSeleccionarCarpetaBackups(): string {
+	return 'mock://BackupsElegidos';
+}
+
 export const tiendaMock: TiendaMock = crearTienda();
 
 export function reiniciarTiendaMock(): void {
@@ -211,6 +240,7 @@ export function reiniciarTiendaMock(): void {
 	tiendaMock.proximoIdDevolucion = fresca.proximoIdDevolucion;
 	configuracionMock = configuracionPorDefecto();
 	pinMock = null;
+	tokenMpMock = null;
 }
 
 /** `SELECT * FROM productos WHERE barcode = ?1 AND activo = 1`. */
@@ -594,7 +624,7 @@ export function mockListarDevoluciones(): DevolucionRegistrada[] {
 export function mockObtenerRutas(): RutasApp {
 	return {
 		data_dir: 'mock://datos-pruebas',
-		backup_dir: 'mock://KioscoBackups',
+		backup_dir: configuracionMock.backup_dir,
 		log_dir: 'mock://KiosquitodoApp/logs',
 		db_path: 'mock://datos-pruebas/kiosco.db'
 	};
@@ -603,7 +633,7 @@ export function mockObtenerRutas(): RutasApp {
 /** `crear_backup_manual()`: ruta simulada con sello de fecha/hora local. */
 export function mockCrearBackupManual(): string {
 	const sello = horaLocalIso().replace(/[-:T]/g, '');
-	return `mock://KioscoBackups/kiosco_${sello}.db`;
+	return `${configuracionMock.backup_dir}/kiosco_${sello}.db`;
 }
 
 /** Despacha un command Tauri simulado por su nombre. */
@@ -684,6 +714,15 @@ export function ejecutarMock<T>(comando: string, args: Record<string, unknown> =
 		case 'eliminar_pin':
 			mockEliminarPin();
 			return Promise.resolve(undefined as T);
+		case 'token_mp_configurado':
+			return Promise.resolve(mockTokenMpConfigurado() as T);
+		case 'guardar_token_mp':
+			return Promise.resolve(mockGuardarTokenMp(args.token as string) as T);
+		case 'eliminar_token_mp':
+			mockEliminarTokenMp();
+			return Promise.resolve(undefined as T);
+		case 'seleccionar_carpeta_backups':
+			return Promise.resolve(mockSeleccionarCarpetaBackups() as T);
 		default:
 			return Promise.reject(new Error(`Comando sin implementación en el mock: ${comando}`));
 	}

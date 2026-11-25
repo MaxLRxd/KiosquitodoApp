@@ -1,15 +1,18 @@
 ﻿//! Commands Tauri del módulo de configuración del sistema: rutas, preferencias,
-//! PIN, autostart y backups. La integración con Mercado Pago (token, keyring y
-//! sync) queda DIFERIDA por decisión del equipo (P16 sin MP).
+//! PIN, token de MP en keyring, carpeta de backups, autostart y backups.
+//! El sync de pagos con Mercado Pago sigue DIFERIDO (P16 sin MP).
 
 use crate::application::config_service::{ConfigService, ConfiguracionApp};
 use crate::application::pin_service::PinService;
 use crate::config::AppConfig;
 use crate::infrastructure::db::repos::ConfigSqlite;
 use crate::infrastructure::db::DbConn;
-use crate::infrastructure::system::{autostart, backup};
+use crate::infrastructure::system::{autostart, backup, keyring_store};
+use crate::ports::credencial_repo::CredencialRepo;
 use serde::Serialize;
+use std::path::Path;
 use tauri::{AppHandle, State};
+use tauri_plugin_dialog::DialogExt;
 
 /// DTO con las rutas resueltas (data, backups, logs y BD).
 #[derive(Debug, Clone, Serialize)]
@@ -22,7 +25,12 @@ pub struct RutasApp {
 
 impl From<AppConfig> for RutasApp {
     fn from(c: AppConfig) -> Self {
-        let AppConfig { data_dir, backup_dir, log_dir, db_path } = c;
+        let AppConfig {
+            data_dir,
+            backup_dir,
+            log_dir,
+            db_path,
+        } = c;
         Self {
             data_dir: data_dir.to_string_lossy().into_owned(),
             backup_dir: backup_dir.to_string_lossy().into_owned(),
@@ -32,13 +40,6 @@ impl From<AppConfig> for RutasApp {
     }
 }
 
-/// Devuelve las rutas del sistema para el frontend (aprox. `/actuator/env`).
-#[tauri::command]
-pub fn obtener_rutas() -> Result<RutasApp, String> {
-    let cfg = AppConfig::resolver().map_err(|e| e.to_string())?;
-    Ok(cfg.into())
-}
-
 /// Arma el servicio de configuración con la carpeta de backups por defecto.
 fn servicio_config(db: &DbConn) -> Result<ConfigService<ConfigSqlite>, String> {
     let cfg = AppConfig::resolver().map_err(|e| e.to_string())?;
@@ -46,6 +47,23 @@ fn servicio_config(db: &DbConn) -> Result<ConfigService<ConfigSqlite>, String> {
         ConfigSqlite::new(db.clone()),
         cfg.backup_dir.to_string_lossy().into_owned(),
     ))
+}
+
+/// Carpeta de backups ya persistida (o el default si nadie la cambió).
+fn backup_dir_configurado(db: &DbConn) -> Result<String, String> {
+    servicio_config(db)?
+        .obtener()
+        .map(|configuracion| configuracion.backup_dir)
+        .map_err(|e| e.to_string())
+}
+
+/// Devuelve las rutas del sistema para el frontend (aprox. `/actuator/env`).
+#[tauri::command]
+pub fn obtener_rutas(db: State<'_, DbConn>) -> Result<RutasApp, String> {
+    let cfg = AppConfig::resolver().map_err(|e| e.to_string())?;
+    let mut rutas: RutasApp = cfg.into();
+    rutas.backup_dir = backup_dir_configurado(db.inner())?;
+    Ok(rutas)
 }
 
 /// Lee las preferencias persistidas, con defaults para las claves ausentes.
@@ -120,6 +138,57 @@ pub fn eliminar_pin(db: State<'_, DbConn>) -> Result<(), String> {
     Ok(())
 }
 
+/// Abre el keyring del sistema para manejar el token de MP.
+fn servicio_token() -> Result<keyring_store::KeyringCredenciales, String> {
+    keyring_store::KeyringCredenciales::new().map_err(|e| e.to_string())
+}
+
+/// ¿Hay un Access Token guardado? Nunca devuelve el token.
+#[tauri::command]
+pub fn token_mp_configurado() -> Result<bool, String> {
+    Ok(servicio_token()?
+        .obtener_token()
+        .map_err(|e| e.to_string())?
+        .is_some())
+}
+
+/// Guarda el token en el keyring cifrado. Devuelve solo el estado.
+#[tauri::command]
+pub fn guardar_token_mp(token: String) -> Result<bool, String> {
+    let token = token.trim();
+    if token.is_empty() {
+        return Err("El token de Mercado Pago no puede estar vacío".to_string());
+    }
+    servicio_token()?
+        .guardar_token(token)
+        .map_err(|e| e.to_string())?;
+    log::info!("Access Token de MP guardado en el keyring (valor no registrado)");
+    Ok(true)
+}
+
+/// Elimina el token del keyring. No falla si ya estaba ausente.
+#[tauri::command]
+pub fn eliminar_token_mp() -> Result<(), String> {
+    servicio_token()?
+        .eliminar_token()
+        .map_err(|e| e.to_string())?;
+    log::info!("Access Token de MP eliminado del keyring");
+    Ok(())
+}
+
+/// Abre el diálogo nativo; devuelve la carpeta elegida o `None` si cancela.
+/// No persiste: el frontend la coloca en el formulario y se guarda aparte.
+#[tauri::command]
+pub fn seleccionar_carpeta_backups(app: AppHandle) -> Result<Option<String>, String> {
+    match app.dialog().file().blocking_pick_folder() {
+        Some(ruta) => {
+            let ruta = ruta.into_path().map_err(|e| e.to_string())?;
+            Ok(Some(ruta.to_string_lossy().into_owned()))
+        }
+        None => Ok(None),
+    }
+}
+
 /// ¿Está habilitado el arranque automático al iniciar sesión?
 #[tauri::command]
 pub fn autostart_estado(app: AppHandle) -> Result<bool, String> {
@@ -141,8 +210,8 @@ pub fn deshabilitar_autostart(app: AppHandle) -> Result<(), String> {
 /// Crea un backup manual (VACUUM INTO) y devuelve la ruta generada.
 #[tauri::command]
 pub fn crear_backup_manual(db: State<'_, DbConn>) -> Result<String, String> {
-    let cfg = AppConfig::resolver().map_err(|e| e.to_string())?;
-    let ruta = backup::crear_backup(db.inner(), &cfg.backup_dir).map_err(|e| e.to_string())?;
+    let dir = backup_dir_configurado(db.inner())?;
+    let ruta = backup::crear_backup(db.inner(), Path::new(&dir)).map_err(|e| e.to_string())?;
     let ruta = ruta.to_string_lossy().into_owned();
     log::info!("Backup manual creado en {}", ruta);
     Ok(ruta)
@@ -150,8 +219,7 @@ pub fn crear_backup_manual(db: State<'_, DbConn>) -> Result<String, String> {
 
 /// Elimina backups más viejos que `retencion_dias`; devuelve cuántos borró.
 #[tauri::command]
-pub fn limpiar_backups_viejos(retencion_dias: u32) -> Result<usize, String> {
-    let cfg = AppConfig::resolver().map_err(|e| e.to_string())?;
-    backup::limpiar_backups_viejos(&cfg.backup_dir, retencion_dias)
-        .map_err(|e| e.to_string())
+pub fn limpiar_backups_viejos(db: State<'_, DbConn>, retencion_dias: u32) -> Result<usize, String> {
+    let dir = backup_dir_configurado(db.inner())?;
+    backup::limpiar_backups_viejos(Path::new(&dir), retencion_dias).map_err(|e| e.to_string())
 }

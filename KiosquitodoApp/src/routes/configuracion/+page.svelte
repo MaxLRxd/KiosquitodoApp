@@ -4,11 +4,15 @@
 	import {
 		crearBackupManual,
 		eliminarPin,
+		eliminarTokenMp,
 		establecerPin,
 		guardarConfiguracion,
+		guardarTokenMp,
 		obtenerConfiguracion,
 		obtenerRutas,
-		pinConfigurado
+		pinConfigurado,
+		seleccionarCarpetaBackups,
+		tokenMpConfigurado
 	} from '$lib/api';
 	import { appState, notificar } from '$lib/stores/app.svelte';
 	import type { ConfiguracionApp, RutasApp } from '$lib/types';
@@ -24,6 +28,9 @@
 	let pinNuevo = $state('');
 	let pinConfirmar = $state('');
 	let guardandoPin = $state(false);
+	let tieneToken = $state(false);
+	let tokenMp = $state('');
+	let guardandoToken = $state(false);
 
 	onMount(() => {
 		void cargarDatos();
@@ -43,6 +50,15 @@
 			appState.pinConfigurado = hayPin;
 		} catch (e) {
 			notificar((e as Error).message, 'error', true);
+		}
+
+		// El keyring puede fallar por razones del SO: no debe bloquear el resto
+		// de la pantalla de configuración.
+		try {
+			tieneToken = await tokenMpConfigurado();
+		} catch (e) {
+			tieneToken = false;
+			notificar(`No se pudo consultar el keyring: ${(e as Error).message}`, 'warn');
 		}
 	}
 
@@ -103,6 +119,47 @@
 			notificar((e as Error).message, 'error', true);
 		} finally {
 			guardandoPin = false;
+		}
+	}
+
+	async function seleccionarCarpeta(): Promise<void> {
+		if (!configuracion) return;
+		try {
+			const carpeta = await seleccionarCarpetaBackups();
+			if (carpeta) {
+				configuracion.backup_dir = carpeta;
+				notificar('Carpeta elegida. Guardá las preferencias para aplicarla', 'info');
+			}
+		} catch (e) {
+			notificar((e as Error).message, 'error', true);
+		}
+	}
+
+	async function guardarToken(): Promise<void> {
+		if (guardandoToken || !tokenMp.trim()) return;
+		guardandoToken = true;
+		try {
+			tieneToken = await guardarTokenMp(tokenMp);
+			tokenMp = '';
+			notificar('Token guardado en el keyring de Windows', 'success');
+		} catch (e) {
+			notificar((e as Error).message, 'error', true);
+		} finally {
+			guardandoToken = false;
+		}
+	}
+
+	async function quitarToken(): Promise<void> {
+		if (guardandoToken) return;
+		guardandoToken = true;
+		try {
+			await eliminarTokenMp();
+			tieneToken = false;
+			notificar('Token eliminado del keyring', 'success');
+		} catch (e) {
+			notificar((e as Error).message, 'error', true);
+		} finally {
+			guardandoToken = false;
 		}
 	}
 
@@ -229,9 +286,27 @@
 					/>
 					Sonidos activos
 				</label>
+				<label class="flex flex-col gap-1 text-sm font-medium text-slate-700 sm:col-span-2">
+					Carpeta de backups
+					<input
+						type="text"
+						bind:value={configuracion.backup_dir}
+						class="rounded-md border border-slate-300 px-3 py-1.5 font-mono text-xs"
+					/>
+					<span class="text-xs font-normal text-slate-500">
+						La usan el backup manual y la limpieza de copias viejas.
+					</span>
+				</label>
 			</div>
 
 			<div class="mt-5 flex flex-wrap items-center gap-3">
+				<button
+					onclick={() => void seleccionarCarpeta()}
+					disabled={guardando}
+					class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+				>
+					Seleccionar carpeta…
+				</button>
 				<button
 					onclick={guardarPreferencias}
 					disabled={guardando}
@@ -320,5 +395,56 @@
 			El bloqueo salta después de {configuracion?.inactividad_minutos ?? 5} minutos sin
 			interacción. Ajustá ese valor en Preferencias (0 = desactivado).
 		</p>
+	</section>
+
+	<section class="mt-6 rounded-xl border border-slate-200 bg-white p-5">
+		<h2 class="text-lg font-bold">Mercado Pago</h2>
+		<p class="text-sm text-slate-500">
+			Access Token guardado en el keyring cifrado de Windows. El backend solo informa si existe;
+			nunca lo devuelve ni lo escribe en el log. La sincronización de pagos sigue diferida.
+		</p>
+
+		{#if !enTauri}
+			<p class="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+				Modo navegador: el token se guarda solo en memoria (mock).
+			</p>
+		{/if}
+
+		<p class="mt-4 text-sm">
+			Estado:
+			<span class="font-semibold {tieneToken ? 'text-green-700' : 'text-slate-600'}">
+				{tieneToken ? 'Token configurado' : 'Sin token'}
+			</span>
+		</p>
+
+		<label class="mt-4 flex flex-col gap-1 text-sm font-medium text-slate-700">
+			Access Token
+			<input
+				type="password"
+				autocomplete="off"
+				bind:value={tokenMp}
+				placeholder="APP_USR-… o TEST-…"
+				class="rounded-md border border-slate-300 px-3 py-1.5"
+			/>
+		</label>
+
+		<div class="mt-5 flex flex-wrap items-center gap-3">
+			<button
+				onclick={() => void guardarToken()}
+				disabled={guardandoToken || !tokenMp.trim()}
+				class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+			>
+				{guardandoToken ? 'Guardando…' : tieneToken ? 'Reemplazar token' : 'Guardar token'}
+			</button>
+			{#if tieneToken}
+				<button
+					onclick={() => void quitarToken()}
+					disabled={guardandoToken}
+					class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+				>
+					Quitar token
+				</button>
+			{/if}
+		</div>
 	</section>
 </div>

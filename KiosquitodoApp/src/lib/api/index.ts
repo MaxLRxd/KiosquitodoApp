@@ -9,6 +9,7 @@ import type {
 	NuevaVenta,
 	Producto,
 	ResumenCierre,
+	RutasApp,
 	Venta
 } from '$lib/types';
 import { ejecutarMock } from './mock';
@@ -129,4 +130,16 @@ export function listarCierres(): Promise<CierrePersistido[]> {
 /** Exporta los cierres del rango `[desde, hasta]` a CSV (montos en centavos). */
 export function exportarCierresCsv(desde: string, hasta: string): Promise<string> {
 	return ejecutar<string>('exportar_cierres_csv', { desde, hasta });
+}
+
+// ── Configuración del sistema ─────────────────────────────────────────────
+
+/** Rutas resueltas por el backend (datos, backups, logs y BD). */
+export function obtenerRutas(): Promise<RutasApp> {
+	return ejecutar<RutasApp>('obtener_rutas', {});
+}
+
+/** Crea un backup manual (VACUUM INTO) y devuelve la ruta generada. */
+export function crearBackupManual(): Promise<string> {
+	return ejecutar<string>('crear_backup_manual', {});
 }

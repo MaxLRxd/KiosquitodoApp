@@ -85,6 +85,14 @@ export interface DevolucionRegistrada {
 	items: ItemVenta[];
 }
 
+/** Rutas resueltas por el backend (espejo de `RutasApp` en Rust). */
+export interface RutasApp {
+	data_dir: string;
+	backup_dir: string;
+	log_dir: string;
+	db_path: string;
+}
+
 export interface MpPago {
 	id: number;
 	mp_id: string;

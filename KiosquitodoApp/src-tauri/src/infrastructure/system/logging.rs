@@ -10,7 +10,7 @@ use std::path::Path;
 /// - Nivel por defecto `info` (sobreescribible vía `RUST_LOG`).
 /// - Un archivo por día, borrando los que superen `LOG_RETENCION_DIAS`.
 pub fn init_logging(log_dir: &Path) -> AppResult<()> {
-    Logger::try_with_str("warn, kiosco_app=info")
+    Logger::try_with_str("warn, kiosco_app_lib=info")
         .map_err(|e| std::io::Error::other(e.to_string()))?
         .log_to_file(FileSpec::default().directory(log_dir).basename("kiosco"))
         .rotate(

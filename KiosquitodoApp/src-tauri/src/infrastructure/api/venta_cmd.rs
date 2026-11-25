@@ -11,9 +11,18 @@ use tauri::State;
 pub fn registrar_venta(db: State<'_, DbConn>, nueva: NuevaVenta) -> Result<Venta, String> {
     let venta_repo = VentaSqlite::new(db.inner().clone());
     let producto_repo = ProductoSqlite::new(db.inner().clone());
-    VentaService::new(venta_repo, producto_repo)
+    let venta = VentaService::new(venta_repo, producto_repo)
         .registrar_venta(&nueva)
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+
+    log::info!(
+        "Venta {} registrada: {} ítems, total {} centavos, medio {:?}",
+        venta.id,
+        venta.items.len(),
+        venta.total,
+        venta.medio_pago
+    );
+    Ok(venta)
 }
 
 /// Obtiene una venta completa (con ítems) por id.

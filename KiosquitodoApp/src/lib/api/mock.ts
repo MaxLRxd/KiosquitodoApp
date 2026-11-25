@@ -10,6 +10,7 @@ import type {
 	NuevaVenta,
 	Producto,
 	ResumenCierre,
+	RutasApp,
 	Venta
 } from '$lib/types';
 
@@ -523,6 +524,22 @@ export function mockListarDevoluciones(): DevolucionRegistrada[] {
 	return [...tiendaMock.devoluciones].sort((a, b) => b.fecha.localeCompare(a.fecha));
 }
 
+/** `obtener_rutas()`: rutas de demostración cuando no hay runtime Tauri. */
+export function mockObtenerRutas(): RutasApp {
+	return {
+		data_dir: 'mock://datos-pruebas',
+		backup_dir: 'mock://KioscoBackups',
+		log_dir: 'mock://KiosquitodoApp/logs',
+		db_path: 'mock://datos-pruebas/kiosco.db'
+	};
+}
+
+/** `crear_backup_manual()`: ruta simulada con sello de fecha/hora local. */
+export function mockCrearBackupManual(): string {
+	const sello = horaLocalIso().replace(/[-:T]/g, '');
+	return `mock://KioscoBackups/kiosco_${sello}.db`;
+}
+
 /** Despacha un command Tauri simulado por su nombre. */
 export function ejecutarMock<T>(comando: string, args: Record<string, unknown> = {}): Promise<T> {
 	switch (comando) {
@@ -582,6 +599,10 @@ export function ejecutarMock<T>(comando: string, args: Record<string, unknown> =
 			return Promise.resolve(undefined as T);
 		case 'listar_devoluciones':
 			return Promise.resolve(mockListarDevoluciones() as T);
+		case 'obtener_rutas':
+			return Promise.resolve(mockObtenerRutas() as T);
+		case 'crear_backup_manual':
+			return Promise.resolve(mockCrearBackupManual() as T);
 		default:
 			return Promise.reject(new Error(`Comando sin implementación en el mock: ${comando}`));
 	}

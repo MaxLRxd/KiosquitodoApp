@@ -24,9 +24,14 @@ pub fn run() {
             let cfg = config::AppConfig::resolver()
                 .map_err(|e| Box::<dyn std::error::Error>::from(e.to_string()))?;
 
+            infrastructure::system::logging::init_logging(&cfg.log_dir)
+                .map_err(|e| Box::<dyn std::error::Error>::from(e.to_string()))?;
+
             let db = DbConn::abrir(&cfg.db_path)
                 .map_err(|e| Box::<dyn std::error::Error>::from(e.to_string()))?;
             app.manage(db);
+
+            log::info!("App iniciada. BD: {}", cfg.db_path.display());
 
             Ok(())
         })

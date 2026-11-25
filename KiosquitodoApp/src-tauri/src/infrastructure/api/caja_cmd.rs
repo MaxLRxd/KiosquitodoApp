@@ -20,9 +20,17 @@ pub fn resumen_diario(db: State<'_, DbConn>, fecha: String) -> Result<ResumenCie
 #[tauri::command]
 pub fn cerrar_caja(db: State<'_, DbConn>, fecha: String) -> Result<CierrePersistido, String> {
     let repo = CierreSqlite::new(db.inner().clone());
-    CierreService::new(repo)
+    let cierre = CierreService::new(repo)
         .cerrar_caja(&fecha)
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+
+    log::info!(
+        "Cierre {} registrado: {} ventas, total {} centavos",
+        cierre.fecha,
+        cierre.resumen.cantidad_ventas,
+        cierre.resumen.total_ventas
+    );
+    Ok(cierre)
 }
 
 /// Lista los cierres guardados, más reciente primero.

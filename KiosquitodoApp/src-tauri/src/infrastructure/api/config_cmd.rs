@@ -58,9 +58,10 @@ pub fn deshabilitar_autostart(app: AppHandle) -> Result<(), String> {
 #[tauri::command]
 pub fn crear_backup_manual(db: State<'_, DbConn>) -> Result<String, String> {
     let cfg = AppConfig::resolver().map_err(|e| e.to_string())?;
-    let ruta = backup::crear_backup(db.inner(), &cfg.backup_dir)
-        .map_err(|e| e.to_string())?;
-    Ok(ruta.to_string_lossy().into_owned())
+    let ruta = backup::crear_backup(db.inner(), &cfg.backup_dir).map_err(|e| e.to_string())?;
+    let ruta = ruta.to_string_lossy().into_owned();
+    log::info!("Backup manual creado en {}", ruta);
+    Ok(ruta)
 }
 
 /// Elimina backups más viejos que `retencion_dias`; devuelve cuántos borró.

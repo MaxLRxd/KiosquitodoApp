@@ -380,3 +380,16 @@ describe('mock: cierre de caja', () => {
 		expect(csv.startsWith('fecha,total_efectivo')).toBe(true);
 	});
 });
+
+describe('mock: sistema (rutas y backup)', () => {
+	it('obtener_rutas devuelve las rutas de demostración', async () => {
+		const rutas = await ejecutarMock<{ data_dir: string; log_dir: string }>('obtener_rutas');
+		expect(rutas.data_dir).toContain('datos-pruebas');
+		expect(rutas.log_dir).toContain('logs');
+	});
+
+	it('crear_backup_manual devuelve una ruta simulada con fecha', async () => {
+		const ruta = await ejecutarMock<string>('crear_backup_manual');
+		expect(ruta).toMatch(/^mock:\/\/KioscoBackups\/kiosco_\d{14}\.db$/);
+	});
+});

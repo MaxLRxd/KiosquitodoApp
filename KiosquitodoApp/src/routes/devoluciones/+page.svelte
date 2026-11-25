@@ -31,6 +31,12 @@
 		return 'bg-violet-100 text-violet-800';
 	}
 
+	function etiquetaReintegro(medio: string): string {
+		if (medio === 'mercado_pago') return 'Mercado Pago';
+		if (medio === 'nota_credito') return 'Nota de crédito';
+		return 'Efectivo';
+	}
+
 	function montoDevuelto(d: DevolucionRegistrada): number {
 		return d.items.reduce((acc, it) => acc + it.cantidad * it.precio_unitario, 0);
 	}
@@ -336,6 +342,7 @@
 						<tr>
 							<th>Fecha</th>
 							<th>Venta</th>
+							<th>Reintegro</th>
 							<th>Ítems</th>
 							<th>Motivo</th>
 							<th class="text-right">Monto devuelto</th>
@@ -347,10 +354,11 @@
 								<td class="tabular-nums text-slate-600">
 									{d.fecha.slice(0, 10)} {d.fecha.slice(11, 19)}
 								</td>
-								<td class="font-semibold text-slate-800">
-									#<span class="tabular-nums">{d.venta_id}</span>
-								</td>
-								<td class="text-slate-600">
+							<td class="font-semibold text-slate-800">
+								#<span class="tabular-nums">{d.venta_id}</span>
+							</td>
+							<td class="text-slate-600">{etiquetaReintegro(d.medio_reintegro)}</td>
+							<td class="text-slate-600">
 									{d.items.map((it) => `${it.cantidad}×${nombreProducto(it.producto_id)}`).join(', ')}
 								</td>
 								<td>{d.motivo ?? '—'}</td>

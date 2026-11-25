@@ -79,6 +79,7 @@ pub struct DevolucionRegistrada {
     pub venta_id: i64,
     /// Fecha/hora local en que se registró la devolución.
     pub fecha: String,
+    pub medio_reintegro: String,
     pub motivo: Option<String>,
     pub items: Vec<VentaItem>,
 }

@@ -37,22 +37,35 @@ impl CierreRepo for CierreSqlite {
     fn resumen_dia(&self, fecha: &str) -> AppResult<ResumenCierre> {
         let conn = self.db.conn.lock().expect("mutex de BD envenenado");
 
-        // Totales de ventas del día (agrupado por día operativo local)
-        let (total_efectivo, total_mp, total_ventas, cantidad_ventas): (i64, i64, i64, i64) =
-            conn.query_row(
-                "SELECT \
-                   COALESCE(SUM(monto_efectivo), 0), \
-                   COALESCE(SUM(monto_mp), 0), \
-                   COALESCE(SUM(total), 0), \
-                   COUNT(*) \
-                 FROM ventas \
-                 WHERE date(hora, 'localtime') = ?1",
-                params![fecha],
-                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
-            )?;
+        let (ventas_efectivo, ventas_mp, cantidad_ventas): (i64, i64, i64) = conn.query_row(
+            "SELECT \
+               COALESCE(SUM(monto_efectivo), 0), \
+               COALESCE(SUM(monto_mp), 0), \
+               COUNT(*) \
+             FROM ventas \
+             WHERE date(hora, 'localtime') = ?1",
+            params![fecha],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )?;
 
-        // Margen bruto: (precio_venta - COALESCE(precio_costo, 0)) × cantidad
-        let margen_bruto: i64 = conn
+        let (devoluciones_efectivo, devoluciones_mp): (i64, i64) = conn.query_row(
+            "SELECT \
+               COALESCE(SUM(CASE WHEN d.medio_reintegro = 'efectivo' \
+                 THEN di.monto_devuelto ELSE 0 END), 0), \
+               COALESCE(SUM(CASE WHEN d.medio_reintegro = 'mercado_pago' \
+                 THEN di.monto_devuelto ELSE 0 END), 0) \
+             FROM devoluciones d \
+             JOIN devolucion_items di ON di.devolucion_id = d.id \
+             WHERE date(d.creado_en, 'localtime') = ?1",
+            params![fecha],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )?;
+
+        let total_efectivo = ventas_efectivo - devoluciones_efectivo;
+        let total_mp = ventas_mp - devoluciones_mp;
+        let total_ventas = total_efectivo + total_mp;
+
+        let margen_ventas: i64 = conn
             .query_row(
                 "SELECT COALESCE(SUM( \
                     (vi.precio_unitario - COALESCE(p.precio_costo, 0)) * vi.cantidad \
@@ -66,17 +79,38 @@ impl CierreRepo for CierreSqlite {
             )
             .unwrap_or(0);
 
-        // Delta MP: montos acreditados según API − montos MP registrados por el operador
+        let margen_devuelto: i64 = conn
+            .query_row(
+                "SELECT COALESCE(SUM( \
+                    (vi.precio_unitario - COALESCE(p.precio_costo, 0)) * di.cantidad \
+                 ), 0) \
+                 FROM devolucion_items di \
+                 JOIN devoluciones d ON d.id = di.devolucion_id \
+                 JOIN venta_items vi ON vi.id = di.venta_item_id \
+                 LEFT JOIN productos p ON p.id = vi.producto_id \
+                 WHERE date(d.creado_en, 'localtime') = ?1",
+                params![fecha],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
+        let margen_bruto = margen_ventas - margen_devuelto;
+
         let delta_mp: i64 = conn
             .query_row(
                 "SELECT ( \
                     SELECT COALESCE(SUM(monto_bruto), 0) FROM mp_pagos \
                     WHERE date(fecha_aprobacion, 'localtime') = ?1 \
                  ) - ( \
-                    SELECT COALESCE(SUM(monto_mp), 0) FROM ventas \
-                    WHERE date(hora, 'localtime') = ?1 AND medio_pago IN ('mercado_pago', 'mixto') \
+                    (SELECT COALESCE(SUM(monto_mp), 0) FROM ventas \
+                     WHERE date(hora, 'localtime') = ?2 \
+                       AND medio_pago IN ('mercado_pago', 'mixto')) \
+                    - (SELECT COALESCE(SUM(di.monto_devuelto), 0) \
+                       FROM devoluciones d \
+                       JOIN devolucion_items di ON di.devolucion_id = d.id \
+                       WHERE date(d.creado_en, 'localtime') = ?3 \
+                         AND d.medio_reintegro = 'mercado_pago') \
                  )",
-                params![fecha],
+                params![fecha, fecha, fecha],
                 |row| row.get(0),
             )
             .unwrap_or(0);
@@ -226,6 +260,61 @@ mod tests {
 
         // Margen: (1500-750)*2 + (2000-1000)*1 = 1500 + 1000 = 2500
         assert_eq!(resumen.margen_bruto, 2500);
+    }
+
+    #[test]
+    fn resumen_dia_descuenta_devoluciones_por_medio_de_reintegro() {
+        let (cierres, ventas, productos, _pagos) = setup();
+        let p = crear_producto(&productos, "Coca", 1000);
+        let hoy = chrono::Local::now().format("%Y-%m-%d").to_string();
+
+        let venta_efectivo = ventas
+            .crear_venta_transaccional(&NuevaVenta {
+                items: vec![VentaItem {
+                    producto_id: p.id,
+                    cantidad: 2,
+                    precio_unitario: 1000,
+                }],
+                medio_pago: MedioPago::Efectivo,
+                monto_efectivo: 2000,
+                monto_mp: 0,
+                descripcion_mp: None,
+            })
+            .unwrap();
+
+        let venta_mp = ventas
+            .crear_venta_transaccional(&NuevaVenta {
+                items: vec![VentaItem {
+                    producto_id: p.id,
+                    cantidad: 1,
+                    precio_unitario: 1000,
+                }],
+                medio_pago: MedioPago::MercadoPago,
+                monto_efectivo: 0,
+                monto_mp: 1000,
+                descripcion_mp: None,
+            })
+            .unwrap();
+
+        let item_devuelto = VentaItem {
+            producto_id: p.id,
+            cantidad: 1,
+            precio_unitario: 1000,
+        };
+        ventas
+            .crear_devolucion(venta_efectivo.id, &[item_devuelto.clone()], None)
+            .unwrap();
+        ventas
+            .crear_devolucion(venta_mp.id, &[item_devuelto], None)
+            .unwrap();
+
+        let resumen = cierres.resumen_dia(&hoy).unwrap();
+        assert_eq!(resumen.total_efectivo, 1000);
+        assert_eq!(resumen.total_mp, 0);
+        assert_eq!(resumen.total_ventas, 1000);
+        assert_eq!(resumen.cantidad_ventas, 2);
+        assert_eq!(resumen.margen_bruto, 500);
+        assert_eq!(resumen.delta_mp, 0);
     }
 
     #[test]

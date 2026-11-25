@@ -138,8 +138,9 @@
 			<p class="eyebrow">Operación diaria</p>
 			<h1 class="page-title mt-1">Cierre de caja</h1>
 			<p class="page-subtitle">
-				Resumen diario con totales, margen bruto estimado y delta de conciliación MP. Al cerrar,
-				se impiden nuevas ventas hasta que reabras la caja.
+				Resumen diario con totales, margen bruto estimado y delta de conciliación MP. Las
+				devoluciones descuentan el total según el medio de reintegro. Al cerrar, se impiden
+				nuevas ventas y devoluciones hasta que reabras la caja.
 			</p>
 		</div>
 		<div class="flex flex-wrap items-center gap-3">
@@ -172,17 +173,17 @@
 			<div class="stat-card">
 				<p class="stat-label">Total</p>
 				<p class="stat-value">{formatearPesos(resumen.total_ventas)}</p>
-				<p class="stat-hint">Facturación bruta</p>
+				<p class="stat-hint">Neto tras devoluciones</p>
 			</div>
 			<div class="stat-card">
 				<p class="stat-label">Efectivo</p>
 				<p class="stat-value text-emerald-700">{formatearPesos(resumen.total_efectivo)}</p>
-				<p class="stat-hint">Cobrado en caja</p>
+				<p class="stat-hint">En caja, menos reintegros</p>
 			</div>
 			<div class="stat-card">
 				<p class="stat-label">Mercado Pago</p>
 				<p class="stat-value text-sky-700">{formatearPesos(resumen.total_mp)}</p>
-				<p class="stat-hint">Cobrado por MP</p>
+				<p class="stat-hint">MP, menos reintegros</p>
 			</div>
 			<div class="stat-card">
 				<p class="stat-label">Margen bruto</p>

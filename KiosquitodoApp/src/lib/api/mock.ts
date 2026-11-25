@@ -545,8 +545,9 @@ export function validarFecha(fecha: string): string | null {
 
 /**
  * `resumen_diario(fecha)`: totales del día idénticos a la query de
- * `CierreSqlite::resumen_dia` (Σ ventas por `date(hora)`, margen por ítem
- * con costo ACTUAL del producto, delta MP = Σ pagos API − Σ ventas MP).
+ * `CierreSqlite::resumen_dia` (Σ ventas menos devoluciones por medio de
+ * reintegro, margen por ítem con costo ACTUAL del producto, delta MP =
+ * Σ pagos API − Σ ventas MP + Σ reintegros MP).
  */
 export function mockResumenDiario(fecha: string): ResumenCierre {
 	const error = validarFecha(fecha);
@@ -554,14 +555,23 @@ export function mockResumenDiario(fecha: string): ResumenCierre {
 	const dia = fecha.trim();
 
 	const ventasDelDia = tiendaMock.ventas.filter((v) => v.hora.startsWith(dia));
+	const devolucionesDelDia = tiendaMock.devoluciones.filter((d) => d.fecha.startsWith(dia));
 
-	const total_efectivo = ventasDelDia.reduce((acc, v) => acc + v.monto_efectivo, 0);
-	const total_mp = ventasDelDia.reduce((acc, v) => acc + v.monto_mp, 0);
-	const total_ventas = ventasDelDia.reduce((acc, v) => acc + v.total, 0);
+	const sumaDevuelto = (medio: string) =>
+		devolucionesDelDia
+			.filter((d) => d.medio_reintegro === medio)
+			.flatMap((d) => d.items)
+			.reduce((acc, it) => acc + it.cantidad * it.precio_unitario, 0);
+
+	const total_efectivo =
+		ventasDelDia.reduce((acc, v) => acc + v.monto_efectivo, 0) - sumaDevuelto('efectivo');
+	const total_mp = ventasDelDia.reduce((acc, v) => acc + v.monto_mp, 0) - sumaDevuelto('mercado_pago');
+	const total_ventas = total_efectivo + total_mp;
 	const cantidad_ventas = ventasDelDia.length;
 
 	// Margen bruto: (precio_unitario − COALESCE(precio_costo, 0)) × cantidad,
-	// con el costo ACTUAL del producto (mismo JOIN del SQL).
+	// con el costo ACTUAL del producto (mismo JOIN del SQL). Las devoluciones
+	// revierten el margen de los ítems devueltos.
 	let margen_bruto = 0;
 	for (const v of ventasDelDia) {
 		for (const item of v.items) {
@@ -569,15 +579,22 @@ export function mockResumenDiario(fecha: string): ResumenCierre {
 			margen_bruto += (item.precio_unitario - (costo ?? 0)) * item.cantidad;
 		}
 	}
+	for (const d of devolucionesDelDia) {
+		for (const item of d.items) {
+			const costo = tiendaMock.productos.find((p) => p.id === item.producto_id)?.precio_costo ?? null;
+			margen_bruto -= (item.precio_unitario - (costo ?? 0)) * item.cantidad;
+		}
+	}
 
 	// Delta MP: Σ pagos acreditados según API − Σ ventas MP registradas,
-	// solo ventas con medio de pago MP o mixto (misma query del backend).
+	// descontando los reintegros MP (misma query del backend).
 	const montoAcreditado = tiendaMock.pagosMp
 		.filter((p) => p.fecha_aprobacion?.startsWith(dia))
 		.reduce((acc, p) => acc + p.monto, 0);
-	const montoRegistrado = ventasDelDia
-		.filter((v) => v.medio_pago === 'mercado_pago' || v.medio_pago === 'mixto')
-		.reduce((acc, v) => acc + v.monto_mp, 0);
+	const montoRegistrado =
+		ventasDelDia
+			.filter((v) => v.medio_pago === 'mercado_pago' || v.medio_pago === 'mixto')
+			.reduce((acc, v) => acc + v.monto_mp, 0) - sumaDevuelto('mercado_pago');
 	const delta_mp = montoAcreditado - montoRegistrado;
 
 	return {
@@ -668,7 +685,8 @@ export function mockRegistrarDevolucion(
 ): DevolucionRegistrada {
 	if (mockCajaEstaCerrada(horaLocalIso().slice(0, 10)))
 		throw new Error(MENSAJE_CAJA_CERRADA_DEVOLUCION);
-	if (!tiendaMock.ventas.some((v) => v.id === ventaId)) throw new Error('La venta no existe');
+	const ventaOriginal = tiendaMock.ventas.find((v) => v.id === ventaId);
+	if (!ventaOriginal) throw new Error('La venta no existe');
 	if (items.length === 0) throw new Error('La devolución debe tener al menos un ítem');
 	if (items.some((i) => i.cantidad <= 0))
 		throw new Error('La cantidad devuelta de cada ítem debe ser mayor a cero');
@@ -682,6 +700,7 @@ export function mockRegistrarDevolucion(
 		id: tiendaMock.proximoIdDevolucion++,
 		venta_id: ventaId,
 		fecha: horaLocalIso(),
+		medio_reintegro: ventaOriginal.medio_pago === 'mercado_pago' ? 'mercado_pago' : 'efectivo',
 		motivo: motivo?.trim() || null,
 		items: items.map((it) => ({ ...it }))
 	};

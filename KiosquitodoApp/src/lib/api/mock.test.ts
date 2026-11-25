@@ -563,7 +563,30 @@ describe('mock: devoluciones', () => {
 		mockReabrirCaja(hoy());
 		mockRegistrarDevolucion(venta.id, [item], 'prueba');
 		const guardada = mockListarDevoluciones()[0];
+		expect(guardada.medio_reintegro).toBe('efectivo');
 		expect(guardada.items[0].precio_unitario).toBe(9000);
 		expect(guardada.items[0].cantidad * guardada.items[0].precio_unitario).toBe(18000);
+
+		const resumen = mockResumenDiario(hoy());
+		expect(resumen.cantidad_ventas).toBe(1);
+		expect(resumen.total_efectivo).toBe(0);
+		expect(resumen.total_ventas).toBe(0);
+	});
+
+	it('el reintegro con MP descuenta el total MP y el registro de la conciliación', () => {
+		const pedido: NuevaVenta = {
+			items: [{ producto_id: 1, cantidad: 1, precio_unitario: 5000 }],
+			medio_pago: 'mercado_pago',
+			monto_efectivo: 0,
+			monto_mp: 5000,
+			descripcion_mp: null
+		};
+		const venta = mockRegistrarVenta(pedido);
+		mockRegistrarDevolucion(venta.id, [{ producto_id: 1, cantidad: 1, precio_unitario: 5000 }]);
+
+		const resumen = mockResumenDiario(hoy());
+		expect(resumen.total_mp).toBe(0);
+		expect(resumen.total_ventas).toBe(0);
+		expect(resumen.delta_mp).toBe(0);
 	});
 });

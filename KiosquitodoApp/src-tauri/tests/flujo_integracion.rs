@@ -133,13 +133,14 @@ fn flujo_completo_en_bd_real() {
         .resumen_diario(&fecha)
         .expect("resumen diario");
     assert_eq!(resumen.cantidad_ventas, 1);
-    assert_eq!(resumen.total_ventas, 8500);
-    assert_eq!(resumen.total_efectivo, 8500);
+    assert_eq!(resumen.total_ventas, 5000);
+    assert_eq!(resumen.total_efectivo, 5000);
 
     let cierre = c_svc
         .cerrar_caja(&fecha)
         .expect("cerrar caja");
     assert!(cierre.id > 0);
+    assert_eq!(cierre.resumen.total_ventas, 5000);
     assert_eq!(c_svc.listar_cierres().unwrap().len(), 1);
 
     // ── CSV ───────────────────────────────────────────────────────────

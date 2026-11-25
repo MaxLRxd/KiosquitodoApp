@@ -81,6 +81,7 @@ export interface DevolucionRegistrada {
 	id: number;
 	venta_id: number;
 	fecha: string; // fecha/hora local
+	medio_reintegro: string; // 'efectivo' | 'mercado_pago' | 'nota_credito'
 	motivo: string | null;
 	items: ItemVenta[];
 }

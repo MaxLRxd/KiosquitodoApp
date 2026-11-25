@@ -1,4 +1,4 @@
-CORRECCIÓNES
+CORRECCIÓNES: a la hora de actualizar stock de un producto, debe dar la opción de escanear con el lector de codigo de barras.
 
 Puntos a cuidar que ya tenés anotados en el SPEC y conviene no aflojar:
 

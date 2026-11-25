@@ -293,7 +293,7 @@ impl VentaRepo for VentaSqlite {
     fn listar_devoluciones(&self) -> AppResult<Vec<DevolucionRegistrada>> {
         let conn = self.db.conn.lock().expect("lock");
         let mut stmt = conn.prepare(
-            "SELECT id, venta_id, creado_en, motivo FROM devoluciones \
+            "SELECT id, venta_id, creado_en, medio_reintegro, motivo FROM devoluciones \
              ORDER BY creado_en DESC, id DESC",
         )?;
         let cabeceras = stmt
@@ -302,7 +302,8 @@ impl VentaRepo for VentaSqlite {
                     id: row.get(0)?,
                     venta_id: row.get(1)?,
                     fecha: row.get(2)?,
-                    motivo: row.get(3)?,
+                    medio_reintegro: row.get(3)?,
+                    motivo: row.get(4)?,
                     items: Vec::new(),
                 })
             })?

@@ -316,7 +316,7 @@ impl VentaRepo for VentaSqlite {
             let ids = d.id;
             let conn = self.db.conn.lock().expect("lock");
             let mut items_stmt = conn.prepare(
-                "SELECT vi.producto_id, di.cantidad, di.monto_devuelto \
+                "SELECT vi.producto_id, di.cantidad, vi.precio_unitario \
                  FROM devolucion_items di \
                  JOIN venta_items vi ON vi.id = di.venta_item_id \
                  WHERE di.devolucion_id = ?1 ORDER BY di.id",
@@ -476,6 +476,39 @@ mod tests {
 
         let p1_act = productos.buscar_por_id(p1.id).unwrap().unwrap();
         assert_eq!(p1_act.stock, 8); // 10 - 4 + 2
+    }
+
+    #[test]
+    fn listar_devoluciones_devuelve_precio_unitario_y_no_el_monto_de_la_linea() {
+        let (ventas, productos) = setup();
+        let p1 = crear_producto(&productos, 1);
+
+        let venta = ventas
+            .crear_venta_transaccional(&nueva_venta(vec![VentaItem {
+                producto_id: p1.id,
+                cantidad: 3,
+                precio_unitario: 9000,
+            }]))
+            .unwrap();
+
+        ventas
+            .crear_devolucion(
+                venta.id,
+                &[VentaItem {
+                    producto_id: p1.id,
+                    cantidad: 2,
+                    precio_unitario: 9000,
+                }],
+                None,
+            )
+            .unwrap();
+
+        let devoluciones = ventas.listar_devoluciones().unwrap();
+        assert_eq!(devoluciones.len(), 1);
+        let item = &devoluciones[0].items[0];
+        assert_eq!(item.cantidad, 2);
+        assert_eq!(item.precio_unitario, 9000);
+        assert_eq!(item.cantidad * item.precio_unitario, 18000);
     }
 
     #[test]

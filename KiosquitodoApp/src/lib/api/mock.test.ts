@@ -1,9 +1,12 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 import {
 	ejecutarMock,
+	MENSAJE_CAJA_CERRADA,
+	MENSAJE_CAJA_CERRADA_DEVOLUCION,
 	mockActualizarProducto,
 	mockAjustarStock,
 	mockBuscarProductoPorBarcode,
+	mockCajaEstaCerrada,
 	mockCerrarCaja,
 	mockCrearCategoria,
 	mockCrearProducto,
@@ -11,14 +14,17 @@ import {
 	mockExportarCierresCsv,
 	mockListarCategorias,
 	mockListarCierres,
+	mockListarDevoluciones,
 	mockListarProductos,
+	mockReabrirCaja,
+	mockRegistrarDevolucion,
 	mockRegistrarVenta,
 	mockResumenDiario,
 	reiniciarTiendaMock,
 	tiendaMock,
 	validarBarcode
 } from './mock';
-import type { ConfiguracionApp, NuevoProducto, NuevaVenta } from '$lib/types';
+import type { ConfiguracionApp, ItemVenta, NuevoProducto, NuevaVenta } from '$lib/types';
 
 beforeEach(() => {
 	reiniciarTiendaMock();
@@ -344,6 +350,18 @@ describe('mock: cierre de caja', () => {
 		expect(mockListarCierres()).toHaveLength(1);
 	});
 
+	it('cerrar bloquea ventas y reabrir las habilita con mensaje claro', () => {
+		mockCerrarCaja(hoy());
+		expect(mockCajaEstaCerrada(hoy())).toBe(true);
+		expect(() => mockRegistrarVenta(venta())).toThrow(MENSAJE_CAJA_CERRADA);
+
+		mockReabrirCaja(hoy());
+		expect(mockCajaEstaCerrada(hoy())).toBe(false);
+		expect(mockListarCierres()).toHaveLength(0);
+		expect(() => mockRegistrarVenta(venta())).not.toThrow();
+		mockReabrirCaja(hoy());
+	});
+
 	it('listar cierres ordena por fecha descendente', () => {
 		mockCerrarCaja('2026-09-10');
 		mockCerrarCaja('2026-09-11');
@@ -376,6 +394,9 @@ describe('mock: cierre de caja', () => {
 		expect(resumen.cantidad_ventas).toBe(1);
 		const cierre = await ejecutarMock<{ id: number }>('cerrar_caja', { fecha: hoy() });
 		expect(cierre.id).toBe(1);
+		expect(await ejecutarMock<boolean>('caja_esta_cerrada', { fecha: hoy() })).toBe(true);
+		await ejecutarMock<void>('reabrir_caja', { fecha: hoy() });
+		expect(await ejecutarMock<boolean>('caja_esta_cerrada', { fecha: hoy() })).toBe(false);
 		const csv = await ejecutarMock<string>('exportar_cierres_csv', { desde: '', hasta: '' });
 		expect(csv.startsWith('fecha,total_efectivo')).toBe(true);
 	});
@@ -513,5 +534,36 @@ describe('mock: token MP y carpeta de backups', () => {
 		const primera = await ejecutarMock<string | null>('verificar_backup_diario');
 		expect(primera).toMatch(/^mock:\/\/.*\/kiosco_\d{8}_000000\.db$/);
 		expect(await ejecutarMock<string | null>('verificar_backup_diario')).toBeNull();
+	});
+});
+
+describe('mock: devoluciones', () => {
+	function hoy(): string {
+		const ahora = new Date();
+		const pad = (n: number) => String(n).padStart(2, '0');
+		return `${ahora.getFullYear()}-${pad(ahora.getMonth() + 1)}-${pad(ahora.getDate())}`;
+	}
+
+	it('exige caja abierta y conserva el precio unitario original', () => {
+		const pedido: NuevaVenta = {
+			items: [{ producto_id: 1, cantidad: 2, precio_unitario: 9000 }],
+			medio_pago: 'efectivo',
+			monto_efectivo: 18000,
+			monto_mp: 0,
+			descripcion_mp: null
+		};
+		const venta = mockRegistrarVenta(pedido);
+		const item: ItemVenta = { producto_id: 1, cantidad: 2, precio_unitario: 9000 };
+
+		mockCerrarCaja(hoy());
+		expect(() => mockRegistrarDevolucion(venta.id, [item])).toThrow(
+			MENSAJE_CAJA_CERRADA_DEVOLUCION
+		);
+
+		mockReabrirCaja(hoy());
+		mockRegistrarDevolucion(venta.id, [item], 'prueba');
+		const guardada = mockListarDevoluciones()[0];
+		expect(guardada.items[0].precio_unitario).toBe(9000);
+		expect(guardada.items[0].cantidad * guardada.items[0].precio_unitario).toBe(18000);
 	});
 });

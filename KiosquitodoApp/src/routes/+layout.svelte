@@ -9,7 +9,7 @@
 	import IconoModulo from '$lib/components/IconoModulo.svelte';
 	import Toast from '$lib/components/Toast.svelte';
 	import { obtenerConfiguracion, pinConfigurado, buscarProductoPorBarcode } from '$lib/api';
-	import { appState, notificar } from '$lib/stores/app.svelte';
+	import { appState, mensajeError, notificar } from '$lib/stores/app.svelte';
 	import { MODULOS } from '$lib/utils/teclas';
 	import { crearListenerEscaneo } from '$lib/utils/scanner';
 	import { reproducirSonido } from '$lib/utils/sonido';
@@ -31,7 +31,7 @@
 	let ultimaActividad = Date.now();
 	let temporizador: ReturnType<typeof setTimeout> | null = null;
 
-	const eventosActividad = ['keydown', 'mousedown', 'pointermove', 'wheel', 'touchstart'];
+	const eventosActividad = ['keydown', 'mousedown', 'wheel', 'touchstart'];
 
 	function armarTemporizador(): void {
 		if (temporizador) clearTimeout(temporizador);
@@ -113,7 +113,7 @@
 				temporizadorConsulta = null;
 			}, 3000);
 		} catch (e) {
-			notificar((e as Error).message, 'error', true);
+			notificar(mensajeError(e), 'error', true);
 		}
 	}
 
@@ -131,9 +131,12 @@
 			]);
 			appState.inactividadMinutos = preferencias.inactividad_minutos;
 			appState.pinConfigurado = hayPin;
+			// Con PIN configurado, la app arranca bloqueada: nadie opera sin
+			// identificarse. La primera vez (sin PIN) no se pide nada.
+			appState.bloqueado = hayPin;
 			ultimaActividad = Date.now();
 		} catch (e) {
-			notificar((e as Error).message, 'error', true);
+			notificar(mensajeError(e), 'error', true);
 		}
 	}
 

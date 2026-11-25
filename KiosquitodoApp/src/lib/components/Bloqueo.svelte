@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { verificarPin } from '$lib/api';
-	import { appState } from '$lib/stores/app.svelte';
+	import { appState, mensajeError } from '$lib/stores/app.svelte';
 
 	let pin = $state('');
 	let error = $state('');
@@ -29,7 +29,7 @@
 				inputPin?.focus();
 			}
 		} catch (e) {
-			error = (e as Error).message;
+			error = mensajeError(e);
 			pin = '';
 			inputPin?.focus();
 		} finally {

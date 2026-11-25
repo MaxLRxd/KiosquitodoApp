@@ -1,11 +1,29 @@
 CORRECCIÓNES
-1. una vez se cierra la caja no se puede volver a registrar ventas ese dia: corregír, se debe poder reabrir(el error: esta bien que no deje, pero que el mensaje de error aclare que se debe volver a abrir para poder cerrar. Por lo tanto, hay que implementar una funcionalidad para volver a abrirla)
-2. No se que tan buena practica sea el apartado de "ingresar el token" de la api de mercado pago, ver como manejarlo profesionalmente.
-3. Ocultar la URL del "manifiesto de actualizaciones". Que solo haya opción para buscarlas y listo.
-4. "Sistema y registros" debería solo dar opción de seleccionar una carpeta para guardar el backup, nada más. Se lo podría unir con la sección de abajo, de preferencias, ya que es de lo mismo. Respecto a esto, elimina lenguaje tecnico, que sea más entendible por la persona que lo vaya a usar.
-5. Al agregar productos al carro el mensaje de exito resulta molesto, mover a una zona que no conflictue con lo principal, por ejemplo: arriba a la izquierda, o abajo.
-6."Buscar numero de venta" no trae la venta seleccionada por su numero.
-7. Los mensajes de error no se muestran, solo sale el rectangulo en rojo sin ningun mensaje.
-8. El filtro de "categoría" no funciona(en inventario), el buscador si.
-9. Acceso y bloqueo no está funcionando. Además, es irrelevante para el usuario el mensaje que se muestra en la sección de NUEVO PIN("Acceso y bloqueo", dentro de configuración). El usuario no entiende ni le interesa como se guarda su pin. Este PIN es para que usuarios indebidos no puedan ingresar al sistema, no solo para bloquear por inactividad, por lo que al abrir la app debería pedir pin(menos la primera vez).
-10. 
+
+Puntos a cuidar que ya tenés anotados en el SPEC y conviene no aflojar:
+
+El token no debe incluirse en backups del .db sin cifrar (como está en keyring, separado del .db, esto ya se cumple por diseño).
+Nunca loguearlo (ni siquiera en DEBUG) — revisá que ningún log::info! o dbg!() lo imprima por accidente durante desarrollo.
+Si versionás con git, nunca commitear un token real "de prueba" en un archivo de config de ejemplo.
+Para desarrollo local (vos probando, no el cliente final)
+
+Como no es info de build sino un secreto por-usuario, lo más práctico es: durante desarrollo, ingresás tu propio Access Token de prueba de MP (sandbox) a través de la misma pantalla de Configuración de la app corriendo en modo dev. Así probás el flujo real (keyring + reqwest) sin necesitar ningún .env. Mercado Pago tiene credenciales de test separadas de las de producción para esto justamente.
+Para producción es, en esencia, el mismo mecanismo — la gracia del enfoque "keyring + ingreso manual" es que no cambia entre dev y producción, porque no hay servidor tuyo de por medio. Pero hay matices importantes que sí cambian:
+
+1. El token de producción no sale de la cuenta del cliente
+
+En dev usás credenciales de test/sandbox de MP. En producción, el propio operador del kiosco (dueño de la cuenta de Mercado Pago) genera su Access Token de producción desde su panel de developers y lo tipea en la pantalla de Configuración de la app ya instalada. Vos como desarrollador nunca ves ni manejás ese token — no hay "build de producción con el token incrustado". Esto es clave porque:
+
+Cada instalación de la app (si el día de mañana vendés esto a otro kiosco) usa su propio token, de su propia cuenta de MP.
+Vos no tenés que preocuparte por rotar ni distribuir secretos en el instalador.
+2. Nada cambia en el build por ser "producción"
+
+Como no hay variables de entorno de servidor, tu cargo tauri build genera el mismo binario sea para que lo pruebes vos o para que lo use el cliente. Lo único que sí distingue dev de producción en el build son cosas no relacionadas al token:
+
+La URL del update.json del auto-updater (ahí sí podrías usar env!() en compile-time si tuvieras un endpoint de staging vs uno real).
+Logging más verboso en dev (debug/trace) vs info en producción — configurable en flexi_logger.
+3. Checklist específico para el token en producción
+Validar el token al guardarlo: cuando el operador lo ingresa, hacé un request de prueba (por ejemplo GET /v1/payments/search con limit=1) para confirmar que es válido antes de guardarlo en keyring, y mostrar un error claro si no lo es (token mal copiado, cuenta sin permisos, etc.).
+Manejo de expiración/revocación: como ya tenés en el SPEC, un 401 de la API dispara un alert pidiendo reingresar el token — importante porque en producción el operador puede revocar el token sin saber las consecuencias.
+Qué pasa si reinstalan la app o cambian de PC: keyring guarda el secreto ligado a esa instalación de Windows, así que si el cliente migra a otra PC, van a tener que volver a cargar el token manualmente. Vale la pena dejarlo documentado en un manual de usuario.
+No lo captures en reportes de error: si en algún momento agregás telemetría o reportes de crash, asegurate de que el token nunca entre en esos payloads.

@@ -123,6 +123,22 @@ impl CierreRepo for CierreSqlite {
         Ok(cierres)
     }
 
+    fn esta_cerrado(&self, fecha: &str) -> AppResult<bool> {
+        let conn = self.db.conn.lock().expect("mutex de BD envenenado");
+        let cerrado: bool = conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM cierres_caja WHERE fecha = ?1)",
+            params![fecha],
+            |row| row.get(0),
+        )?;
+        Ok(cerrado)
+    }
+
+    fn reabrir(&self, fecha: &str) -> AppResult<()> {
+        let conn = self.db.conn.lock().expect("mutex de BD envenenado");
+        conn.execute("DELETE FROM cierres_caja WHERE fecha = ?1", params![fecha])?;
+        Ok(())
+    }
+
     /// `VACUUM` reconstruye el archivo de la BD y recupera espacio.
     /// No corre dentro de una transacción (SQLite lo rechaza).
     fn vacuar(&self) -> AppResult<()> {
@@ -234,6 +250,23 @@ mod tests {
         assert_eq!(lista.len(), 1);
         assert_eq!(lista[0].fecha, hoy);
         assert_eq!(lista[0].resumen.total_efectivo, 1000);
+    }
+
+    #[test]
+    fn reabrir_elimina_el_cierre_y_permite_consultar_estado() {
+        let (cierres, _, _, _) = setup();
+        let hoy = chrono::Local::now().format("%Y-%m-%d").to_string();
+        let r = ResumenCierre::nuevo(1000, 0, 1000, 1, 400, 0);
+
+        assert!(!cierres.esta_cerrado(&hoy).unwrap());
+        cierres.guardar_cierre(&hoy, &r).unwrap();
+        assert!(cierres.esta_cerrado(&hoy).unwrap());
+
+        cierres.reabrir(&hoy).unwrap();
+        assert!(!cierres.esta_cerrado(&hoy).unwrap());
+        assert!(cierres.obtener_cierres().unwrap().is_empty());
+
+        cierres.reabrir(&hoy).unwrap();
     }
 
     #[test]

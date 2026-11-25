@@ -17,6 +17,14 @@ import type {
 	Venta
 } from '$lib/types';
 
+/** Mismo mensaje que `CierreService::MENSAJE_CAJA_CERRADA` en Rust. */
+export const MENSAJE_CAJA_CERRADA =
+	'La caja de hoy ya está cerrada. Reabrí la caja desde Cierre de caja para poder registrar ventas.';
+
+/** Mismo mensaje que `CierreService::MENSAJE_CAJA_CERRADA_DEVOLUCION` en Rust. */
+export const MENSAJE_CAJA_CERRADA_DEVOLUCION =
+	'La caja de hoy ya está cerrada. Reabrí la caja desde Cierre de caja para poder hacer devoluciones.';
+
 /**
  * Backend simulado en memoria para desarrollo del frontend sin el runtime Tauri.
  * Espeja el contrato de los commands Rust (`buscar_producto_por_barcode`,
@@ -485,6 +493,9 @@ function horaLocalIso(): string {
  * `VentaService::registrar_venta`).
  */
 export function mockRegistrarVenta(nueva: NuevaVenta): Venta {
+	const hoy = horaLocalIso().slice(0, 10);
+	if (mockCajaEstaCerrada(hoy)) throw new Error(MENSAJE_CAJA_CERRADA);
+
 	const error = validarVenta(nueva);
 	if (error) throw new Error(error);
 
@@ -581,7 +592,7 @@ export function mockResumenDiario(fecha: string): ResumenCierre {
 
 /**
  * `cerrar_caja(fecha)`: consolida el resumen, lo persiste y devuelve el cierre.
- * No borra ventas ni bloquea el día (puede repetirse, como el backend).
+ * El cierre bloquea nuevas ventas hasta `mockReabrirCaja` (igual que el backend).
  */
 export function mockCerrarCaja(fecha: string): CierrePersistido {
 	const dia = fecha.trim();
@@ -589,6 +600,22 @@ export function mockCerrarCaja(fecha: string): CierrePersistido {
 	const cierre = crearCierre(tiendaMock.proximoIdCierre++, dia, resumen);
 	tiendaMock.cierres = [...tiendaMock.cierres, cierre];
 	return cierre;
+}
+
+/** `caja_esta_cerrada(fecha)`: ¿el día tiene un cierre persistido? */
+export function mockCajaEstaCerrada(fecha: string): boolean {
+	const error = validarFecha(fecha);
+	if (error) throw new Error(error);
+	const dia = fecha.trim();
+	return tiendaMock.cierres.some((c) => c.fecha === dia);
+}
+
+/** `reabrir_caja(fecha)`: borra el cierre del día (idempotente). */
+export function mockReabrirCaja(fecha: string): void {
+	const error = validarFecha(fecha);
+	if (error) throw new Error(error);
+	const dia = fecha.trim();
+	tiendaMock.cierres = tiendaMock.cierres.filter((c) => c.fecha !== dia);
 }
 
 /** `listar_cierres()`: histórico ordenado por fecha descendente (`ORDER BY fecha DESC`). */
@@ -639,6 +666,8 @@ export function mockRegistrarDevolucion(
 	items: ItemVenta[],
 	motivo: string | null = null
 ): DevolucionRegistrada {
+	if (mockCajaEstaCerrada(horaLocalIso().slice(0, 10)))
+		throw new Error(MENSAJE_CAJA_CERRADA_DEVOLUCION);
 	if (!tiendaMock.ventas.some((v) => v.id === ventaId)) throw new Error('La venta no existe');
 	if (items.length === 0) throw new Error('La devolución debe tener al menos un ítem');
 	if (items.some((i) => i.cantidad <= 0))
@@ -725,6 +754,11 @@ export function ejecutarMock<T>(comando: string, args: Record<string, unknown> =
 			return Promise.resolve(mockResumenDiario(args.fecha as string) as T);
 		case 'cerrar_caja':
 			return Promise.resolve(mockCerrarCaja(args.fecha as string) as T);
+		case 'caja_esta_cerrada':
+			return Promise.resolve(mockCajaEstaCerrada(args.fecha as string) as T);
+		case 'reabrir_caja':
+			mockReabrirCaja(args.fecha as string);
+			return Promise.resolve(undefined as T);
 		case 'listar_cierres':
 			return Promise.resolve(mockListarCierres() as T);
 		case 'exportar_cierres_csv':

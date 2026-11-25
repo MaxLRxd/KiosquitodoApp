@@ -157,8 +157,7 @@
 			modalProducto = false;
 			await cargar();
 		} catch (e) {
-			const mensaje = e instanceof Error ? e.message : String(e);
-			notificar(mensaje, 'error', true);
+			notificar(e, 'error', true);
 			reproducirSonido('sistema_error');
 		} finally {
 			guardando = false;
@@ -174,7 +173,7 @@
 			mostrarNuevaCategoria = false;
 			notificar(`Categoría «${creada.nombre}» creada`, 'success');
 		} catch (e) {
-			notificar(e instanceof Error ? e.message : String(e), 'error', true);
+			notificar(e, 'error', true);
 		}
 	}
 
@@ -204,7 +203,7 @@
 			modalStock = false;
 			await cargar();
 		} catch (e) {
-			notificar(e instanceof Error ? e.message : String(e), 'error', true);
+			notificar(e, 'error', true);
 		} finally {
 			guardando = false;
 		}
@@ -218,7 +217,7 @@
 			notificar(`Producto «${p.nombre}» dado de baja`, 'info');
 			await cargar();
 		} catch (e) {
-			notificar(e instanceof Error ? e.message : String(e), 'error', true);
+			notificar(e, 'error', true);
 		}
 	}
 

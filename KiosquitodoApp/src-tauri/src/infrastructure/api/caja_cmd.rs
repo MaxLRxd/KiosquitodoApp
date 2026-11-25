@@ -33,6 +33,26 @@ pub fn cerrar_caja(db: State<'_, DbConn>, fecha: String) -> Result<CierrePersist
     Ok(cierre)
 }
 
+/// Indica si la fecha ya fue cerrada (para habilitar la reapertura en la UI).
+#[tauri::command]
+pub fn caja_esta_cerrada(db: State<'_, DbConn>, fecha: String) -> Result<bool, String> {
+    let repo = CierreSqlite::new(db.inner().clone());
+    CierreService::new(repo)
+        .esta_cerrado(&fecha)
+        .map_err(|e| e.to_string())
+}
+
+/// Reabre el día borrando su cierre persistido (idempotente).
+#[tauri::command]
+pub fn reabrir_caja(db: State<'_, DbConn>, fecha: String) -> Result<(), String> {
+    let repo = CierreSqlite::new(db.inner().clone());
+    CierreService::new(repo)
+        .reabrir_caja(&fecha)
+        .map_err(|e| e.to_string())?;
+    log::info!("Caja reabierta para la fecha {fecha}");
+    Ok(())
+}
+
 /// Lista los cierres guardados, más reciente primero.
 #[tauri::command]
 pub fn listar_cierres(db: State<'_, DbConn>) -> Result<Vec<CierrePersistido>, String> {

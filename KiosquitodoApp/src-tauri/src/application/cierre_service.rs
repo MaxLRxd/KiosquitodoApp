@@ -5,6 +5,12 @@ use crate::domain::cierre::ResumenCierre;
 use crate::errors::{AppError, AppResult};
 use crate::ports::cierre_repo::{CierrePersistido, CierreRepo};
 
+/// Mensaje que ve el operador cuando intenta vender con la caja cerrada.
+pub const MENSAJE_CAJA_CERRADA: &str = "La caja de hoy ya está cerrada. Reabrí la caja desde Cierre de caja para poder registrar ventas.";
+
+/// Mensaje al intentar devolver un producto con la caja cerrada.
+pub const MENSAJE_CAJA_CERRADA_DEVOLUCION: &str = "La caja de hoy ya está cerrada. Reabrí la caja desde Cierre de caja para poder hacer devoluciones.";
+
 /// Casos de uso de cierre de caja. `CierreRepo` ya consolida el resumen del
 /// día por SQL (totales, margen y delta MP); el servicio coordina la
 /// persistencia y la compactación posterior.
@@ -35,6 +41,35 @@ impl<C: CierreRepo> CierreService<C> {
             fecha: fecha.to_string(),
             resumen,
         })
+    }
+
+    /// Indica si el día ya fue cerrado.
+    pub fn esta_cerrado(&self, fecha: &str) -> AppResult<bool> {
+        validar_fecha(fecha)?;
+        self.repo.esta_cerrado(fecha)
+    }
+
+    /// Impide registrar ventas mientras el día esté cerrado.
+    pub fn validar_caja_abierta(&self, fecha: &str) -> AppResult<()> {
+        self.validar_caja_abierta_para(fecha, MENSAJE_CAJA_CERRADA)
+    }
+
+    /// Impide hacer devoluciones mientras el día esté cerrado.
+    pub fn validar_caja_abierta_para_devolucion(&self, fecha: &str) -> AppResult<()> {
+        self.validar_caja_abierta_para(fecha, MENSAJE_CAJA_CERRADA_DEVOLUCION)
+    }
+
+    fn validar_caja_abierta_para(&self, fecha: &str, mensaje: &str) -> AppResult<()> {
+        if self.esta_cerrado(fecha)? {
+            return Err(AppError::negocio(mensaje));
+        }
+        Ok(())
+    }
+
+    /// Reabre el día borrando su cierre persistido (idempotente).
+    pub fn reabrir_caja(&self, fecha: &str) -> AppResult<()> {
+        validar_fecha(fecha)?;
+        self.repo.reabrir(fecha)
     }
 
     /// Historial de cierres, más reciente primero.
@@ -151,6 +186,25 @@ mod tests {
             Ok(self.estado.lock().unwrap().cierres.clone())
         }
 
+        fn esta_cerrado(&self, fecha: &str) -> AppResult<bool> {
+            Ok(self
+                .estado
+                .lock()
+                .unwrap()
+                .cierres
+                .iter()
+                .any(|c| c.fecha == fecha))
+        }
+
+        fn reabrir(&self, fecha: &str) -> AppResult<()> {
+            self.estado
+                .lock()
+                .unwrap()
+                .cierres
+                .retain(|c| c.fecha != fecha);
+            Ok(())
+        }
+
         fn vacuar(&self) -> AppResult<()> {
             self.estado.lock().unwrap().vacuar_llamado = true;
             Ok(())
@@ -188,6 +242,41 @@ mod tests {
         assert_eq!(cierre.fecha, "2026-09-10");
         assert_eq!(s.listar_cierres().unwrap().len(), 1);
         assert!(mock.estado.lock().unwrap().vacuar_llamado);
+    }
+
+    #[test]
+    fn reabrir_caja_habilita_nuevas_ventas() {
+        let mock = MockCierre::nuevo(vec![]);
+        let s = svc(mock);
+
+        s.cerrar_caja("2026-09-10").unwrap();
+        assert!(s.esta_cerrado("2026-09-10").unwrap());
+        assert_eq!(
+            s.validar_caja_abierta("2026-09-10").unwrap_err().to_string(),
+            format!("Regla de negocio: {MENSAJE_CAJA_CERRADA}")
+        );
+
+        s.reabrir_caja("2026-09-10").unwrap();
+        assert!(s.validar_caja_abierta("2026-09-10").is_ok());
+        assert!(s.listar_cierres().unwrap().is_empty());
+    }
+
+    #[test]
+    fn caja_cerrada_bloquea_devoluciones_con_mensaje_especifico() {
+        let s = svc(MockCierre::nuevo(vec![]));
+        s.cerrar_caja("2026-09-10").unwrap();
+
+        assert_eq!(
+            s.validar_caja_abierta_para_devolucion("2026-09-10")
+                .unwrap_err()
+                .to_string(),
+            format!("Regla de negocio: {MENSAJE_CAJA_CERRADA_DEVOLUCION}")
+        );
+
+        s.reabrir_caja("2026-09-10").unwrap();
+        assert!(s
+            .validar_caja_abierta_para_devolucion("2026-09-10")
+            .is_ok());
     }
 
     #[test]

@@ -2,36 +2,28 @@
 	import { onMount } from 'svelte';
 	import { isTauri } from '@tauri-apps/api/core';
 	import {
-		crearBackupManual,
 		eliminarPin,
 		eliminarTokenMp,
 		establecerPin,
 		guardarConfiguracion,
 		guardarTokenMp,
 		obtenerConfiguracion,
-		obtenerRutas,
 		pinConfigurado,
 		seleccionarCarpetaBackups,
-		tokenMpConfigurado,
-		verificarBackupDiario
+		tokenMpConfigurado
 	} from '$lib/api';
-	import { appState, notificar } from '$lib/stores/app.svelte';
+	import { appState, mensajeError, notificar } from '$lib/stores/app.svelte';
 	import {
 		actualizaciones,
 		cargarEstadoActualizaciones,
 		instalarActualizacionDisponible,
 		verificarActualizaciones
 	} from '$lib/stores/actualizaciones.svelte';
-	import type { ConfiguracionApp, RutasApp } from '$lib/types';
+	import type { ConfiguracionApp } from '$lib/types';
 
 	const enTauri = isTauri();
 
-	let rutas = $state<RutasApp | null>(null);
 	let configuracion = $state<ConfiguracionApp | null>(null);
-	let ultimoBackup = $state<string | null>(null);
-	let creando = $state(false);
-	let verificandoBackupDiario = $state(false);
-	let resultadoBackupDiario = $state<string | null>(null);
 	let guardando = $state(false);
 	let tienePin = $state(false);
 	let pinNuevo = $state('');
@@ -47,33 +39,34 @@
 			: null
 	);
 
+	function nombreCarpeta(ruta: string): string {
+		return ruta.split(/[\\/]/).filter(Boolean).pop() ?? ruta;
+	}
+
 	onMount(() => {
 		void cargarDatos();
 	});
 
 	async function cargarDatos(): Promise<void> {
 		try {
-			const [rutasLeidas, preferencias, hayPin] = await Promise.all([
-				obtenerRutas(),
+			const [preferencias, hayPin] = await Promise.all([
 				obtenerConfiguracion(),
 				pinConfigurado()
 			]);
-			rutas = rutasLeidas;
 			configuracion = preferencias;
 			tienePin = hayPin;
 			appState.inactividadMinutos = preferencias.inactividad_minutos;
 			appState.pinConfigurado = hayPin;
+			if (!hayPin) appState.bloqueado = false;
 		} catch (e) {
-			notificar((e as Error).message, 'error', true);
+			notificar(mensajeError(e), 'error', true);
 		}
 
-		// El keyring puede fallar por razones del SO: no debe bloquear el resto
-		// de la pantalla de configuración.
 		try {
 			tieneToken = await tokenMpConfigurado();
-		} catch (e) {
+		} catch {
 			tieneToken = false;
-			notificar(`No se pudo consultar el keyring: ${(e as Error).message}`, 'warn');
+			notificar('No se pudo verificar el estado de Mercado Pago', 'warn');
 		}
 
 		await cargarEstadoActualizaciones();
@@ -98,9 +91,9 @@
 			configuracion = await guardarConfiguracion(datos);
 			appState.inactividadMinutos = configuracion.inactividad_minutos;
 			await cargarEstadoActualizaciones();
-			notificar('Preferencias guardadas', 'success');
+			notificar('Cambios guardados', 'success');
 		} catch (e) {
-			notificar((e as Error).message, 'error', true);
+			notificar(mensajeError(e), 'error', true);
 		} finally {
 			guardando = false;
 		}
@@ -108,6 +101,10 @@
 
 	async function configurarPin(): Promise<void> {
 		if (guardandoPin || !pinNuevo) return;
+		if (!/^\d{4,6}$/.test(pinNuevo)) {
+			notificar('El PIN debe tener entre 4 y 6 números', 'warn');
+			return;
+		}
 		if (pinNuevo !== pinConfirmar) {
 			notificar('Los PIN no coinciden', 'error');
 			return;
@@ -118,9 +115,13 @@
 			appState.pinConfigurado = tienePin;
 			pinNuevo = '';
 			pinConfirmar = '';
-			notificar(tienePin ? 'PIN configurado' : 'PIN actualizado', 'success');
+			if (tienePin) appState.bloqueado = true;
+			notificar(
+				tienePin ? 'PIN configurado. Se pedirá al abrir el kiosco.' : 'PIN actualizado',
+				'success'
+			);
 		} catch (e) {
-			notificar((e as Error).message, 'error', true);
+			notificar(mensajeError(e), 'error', true);
 		} finally {
 			guardandoPin = false;
 		}
@@ -134,9 +135,9 @@
 			tienePin = false;
 			appState.pinConfigurado = false;
 			appState.bloqueado = false;
-			notificar('PIN quitado. El bloqueo quedó desactivado', 'success');
+			notificar('PIN quitado. El kiosco ya no pedirá clave', 'success');
 		} catch (e) {
-			notificar((e as Error).message, 'error', true);
+			notificar(mensajeError(e), 'error', true);
 		} finally {
 			guardandoPin = false;
 		}
@@ -148,10 +149,10 @@
 			const carpeta = await seleccionarCarpetaBackups();
 			if (carpeta) {
 				configuracion.backup_dir = carpeta;
-				notificar('Carpeta elegida. Guardá las preferencias para aplicarla', 'info');
+				notificar('Carpeta elegida. Guardá los cambios para aplicarla', 'info');
 			}
 		} catch (e) {
-			notificar((e as Error).message, 'error', true);
+			notificar(mensajeError(e), 'error', true);
 		}
 	}
 
@@ -159,11 +160,14 @@
 		if (guardandoToken || !tokenMp.trim()) return;
 		guardandoToken = true;
 		try {
-			tieneToken = await guardarTokenMp(tokenMp);
+			tieneToken = await guardarTokenMp(tokenMp.trim());
 			tokenMp = '';
-			notificar('Token guardado en el keyring de Windows', 'success');
+			notificar(
+				tieneToken ? 'Credencial guardada de forma segura.' : 'No se pudo guardar la credencial',
+				tieneToken ? 'success' : 'warn'
+			);
 		} catch (e) {
-			notificar((e as Error).message, 'error', true);
+			notificar(mensajeError(e), 'error', true);
 		} finally {
 			guardandoToken = false;
 		}
@@ -175,40 +179,11 @@
 		try {
 			await eliminarTokenMp();
 			tieneToken = false;
-			notificar('Token eliminado del keyring', 'success');
+			notificar('Credencial de Mercado Pago quitada', 'success');
 		} catch (e) {
-			notificar((e as Error).message, 'error', true);
+			notificar(mensajeError(e), 'error', true);
 		} finally {
 			guardandoToken = false;
-		}
-	}
-
-	async function crearBackup(): Promise<void> {
-		if (creando) return;
-		creando = true;
-		try {
-			ultimoBackup = await crearBackupManual();
-			notificar('Backup manual creado', 'success');
-		} catch (e) {
-			notificar((e as Error).message, 'error', true);
-		} finally {
-			creando = false;
-		}
-	}
-
-	async function probarBackupDiario(): Promise<void> {
-		if (verificandoBackupDiario) return;
-		verificandoBackupDiario = true;
-		try {
-			const ruta = await verificarBackupDiario();
-			resultadoBackupDiario = ruta
-				? `Creado ahora: ${ruta}`
-				: 'Ya existe el backup de hoy (el arranque lo verificó)';
-			notificar('Backup diario verificado', 'success');
-		} catch (e) {
-			notificar((e as Error).message, 'error', true);
-		} finally {
-			verificandoBackupDiario = false;
 		}
 	}
 </script>
@@ -218,9 +193,7 @@
 		<div>
 			<p class="eyebrow">Administración</p>
 			<h1 class="page-title mt-1">Configuración</h1>
-			<p class="page-subtitle">
-				Sistema, backups y preferencias de operación. Los registros y backups se comprueban acá.
-			</p>
+			<p class="page-subtitle">Preferencias, acceso y conexiones del kiosco.</p>
 		</div>
 		<span class="badge {enTauri ? 'badge-success' : 'badge-warn'}">
 			{enTauri ? 'App de escritorio' : 'Modo navegador'}
@@ -230,96 +203,8 @@
 	<section class="card card-pad mt-5">
 		<div class="flex flex-wrap items-start justify-between gap-3">
 			<div>
-				<h2 class="section-title">Sistema y registros</h2>
-				<p class="section-subtitle">
-					Rutas resueltas por el backend y creación manual de backup. Cada backup manual queda
-					registrado en el log del día.
-				</p>
-			</div>
-			<span class="badge-info">Diagnóstico</span>
-		</div>
-
-		{#if !enTauri}
-			<div class="alert-warn mt-4">
-				Modo navegador: las rutas y el backup son simulados por el mock; en la app Tauri se usan
-				rutas y archivos reales.
-			</div>
-		{/if}
-
-		{#if rutas}
-			<dl class="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-				<div class="rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3">
-					<dt class="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-						Directorio de logs
-					</dt>
-					<dd class="mt-1 break-all font-mono text-xs text-slate-800">{rutas.log_dir}</dd>
-				</div>
-				<div class="rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3">
-					<dt class="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-						Directorio de backups
-					</dt>
-					<dd class="mt-1 break-all font-mono text-xs text-slate-800">{rutas.backup_dir}</dd>
-				</div>
-				<div class="rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3">
-					<dt class="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-						Directorio de datos
-					</dt>
-					<dd class="mt-1 break-all font-mono text-xs text-slate-800">{rutas.data_dir}</dd>
-				</div>
-				<div class="rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3">
-					<dt class="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-						Base de datos
-					</dt>
-					<dd class="mt-1 break-all font-mono text-xs text-slate-800">{rutas.db_path}</dd>
-				</div>
-			</dl>
-		{:else}
-			<div class="mt-4 flex items-center gap-2 text-sm text-slate-500">
-				<span class="h-2 w-2 animate-pulse-soft rounded-full bg-indigo-500"></span>
-				Cargando rutas…
-			</div>
-		{/if}
-
-		<div class="mt-5 flex flex-wrap items-center gap-3">
-			<button onclick={crearBackup} disabled={creando || !rutas} class="btn-primary">
-				{creando ? 'Creando…' : 'Crear backup manual'}
-			</button>
-			{#if ultimoBackup}
-				<span class="text-xs text-slate-500">
-					Último backup: <span class="font-mono text-slate-700">{ultimoBackup}</span>
-				</span>
-			{/if}
-		</div>
-
-		<div class="mt-4 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-4">
-			<button
-				onclick={() => void probarBackupDiario()}
-				disabled={verificandoBackupDiario || !rutas}
-				class="btn-secondary"
-			>
-				{verificandoBackupDiario ? 'Verificando…' : 'Probar backup automático'}
-			</button>
-			{#if resultadoBackupDiario}
-				<span class="text-xs text-slate-600">
-					Resultado: <span class="font-mono text-slate-800">{resultadoBackupDiario}</span>
-				</span>
-			{/if}
-		</div>
-
-		<p class="mt-3 text-xs leading-relaxed text-slate-500">
-			Los eventos se escriben en <span class="font-mono">kiosco_YYYY-MM-DD.log</span> dentro del
-			directorio de logs. El estado y la configuración del auto-update están en la sección
-			Actualizaciones.
-		</p>
-	</section>
-
-	<section class="card card-pad mt-5">
-		<div class="flex flex-wrap items-start justify-between gap-3">
-			<div>
 				<h2 class="section-title">Preferencias</h2>
-				<p class="section-subtitle">
-					Ajustes guardados en la base de datos. Las claves ausentes toman su valor por defecto.
-				</p>
+				<p class="section-subtitle">Ajustes de uso diario. Guardalos con el botón al final.</p>
 			</div>
 			<span class="badge-neutral">Operación</span>
 		</div>
@@ -327,7 +212,7 @@
 		{#if configuracion}
 			<div class="mt-4 grid gap-4 sm:grid-cols-2">
 				<label class="label">
-					Intervalo de sync (minutos)
+					Actualización de pagos (minutos)
 					<input
 						type="number"
 						min="1"
@@ -336,7 +221,7 @@
 					/>
 				</label>
 				<label class="label">
-					Inactividad (minutos)
+					Bloquear después de (minutos)
 					<input
 						type="number"
 						min="0"
@@ -344,7 +229,7 @@
 						class="input"
 					/>
 					<span class="text-[11px] font-medium normal-case tracking-normal text-slate-400">
-						0 = bloqueo desactivado
+						0 = no se bloquea solo. Si hay PIN, se pide igual al abrir.
 					</span>
 				</label>
 				<label
@@ -357,29 +242,28 @@
 					/>
 					Sonidos activos
 				</label>
-				<label class="label sm:col-span-2">
-					Carpeta de backups
-					<input
-						type="text"
-						bind:value={configuracion.backup_dir}
-						class="input font-mono text-xs"
-					/>
-					<span class="text-[11px] font-medium normal-case tracking-normal text-slate-400">
-						La usan el backup manual, el backup diario y la limpieza de copias viejas.
-					</span>
-				</label>
+				<div
+					class="flex flex-col justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3 sm:col-span-2"
+				>
+					<div>
+						<p class="text-sm font-semibold text-slate-700">Respaldo de datos</p>
+						<p class="mt-1 text-[11px] text-slate-500">
+							Carpeta elegida: {nombreCarpeta(configuracion.backup_dir)}
+						</p>
+					</div>
+					<button
+						onclick={() => void seleccionarCarpeta()}
+						disabled={guardando}
+						class="btn-secondary self-start"
+					>
+						Elegir carpeta…
+					</button>
+				</div>
 			</div>
 
 			<div class="mt-5 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-4">
-				<button
-					onclick={() => void seleccionarCarpeta()}
-					disabled={guardando}
-					class="btn-secondary"
-				>
-					Seleccionar carpeta…
-				</button>
 				<button onclick={guardarPreferencias} disabled={guardando} class="btn-primary">
-					{guardando ? 'Guardando…' : 'Guardar preferencias'}
+					{guardando ? 'Guardando…' : 'Guardar cambios'}
 				</button>
 				<button onclick={() => void cargarDatos()} disabled={guardando} class="btn-ghost">
 					Recargar
@@ -398,18 +282,18 @@
 			<div>
 				<h2 class="section-title">Acceso y bloqueo</h2>
 				<p class="section-subtitle">
-					El PIN se guarda como hash SHA-256 con salt, nunca en claro. Sin PIN configurado no hay
-					bloqueo por inactividad.
+					Poné un PIN de 4 a 6 números para que nadie más opere el kiosco. Se pedirá al abrir y
+					también después del tiempo de inactividad.
 				</p>
 			</div>
 			<span class="badge {tienePin ? 'badge-success' : 'badge-neutral'}">
-				{tienePin ? 'PIN configurado' : 'Sin PIN'}
+				{tienePin ? 'Con PIN' : 'Sin PIN'}
 			</span>
 		</div>
 
 		<div class="mt-4 grid gap-4 sm:grid-cols-2">
 			<label class="label">
-				Nuevo PIN (4-6 dígitos)
+				Nuevo PIN
 				<input
 					type="password"
 					inputmode="numeric"
@@ -454,8 +338,8 @@
 		</div>
 
 		<p class="mt-3 text-xs leading-relaxed text-slate-500">
-			El bloqueo salta después de {configuracion?.inactividad_minutos ?? 5} minutos sin interacción.
-			Ajustá ese valor en Preferencias (0 = desactivado).
+			El tiempo de inactividad se ajusta en Preferencias. Si lo ponés en 0, el PIN solo se pide al
+			abrir el kiosco.
 		</p>
 	</section>
 
@@ -463,10 +347,7 @@
 		<div class="flex flex-wrap items-start justify-between gap-3">
 			<div>
 				<h2 class="section-title">Actualizaciones</h2>
-				<p class="section-subtitle">
-					La app consulta un manifiesto <span class="font-mono">latest.json</span> y valida la firma
-					digital del instalador antes de aplicarlo. El endpoint se puede cambiar sin recompilar.
-				</p>
+				<p class="section-subtitle">Buscá mejoras y aplicá la última versión cuando quieras.</p>
 			</div>
 			<span class="badge-info">
 				{actualizaciones.estado ? `v${actualizaciones.estado.version_actual}` : 'Cargando…'}
@@ -475,37 +356,12 @@
 
 		{#if !enTauri}
 			<div class="alert-warn mt-4">
-				Modo navegador: la verificación y la instalación reales solo funcionan en la app de
-				escritorio.
+				Modo navegador: la búsqueda y la instalación se simulan. Probá las actualizaciones en la app
+				de escritorio.
 			</div>
 		{/if}
 
 		{#if configuracion}
-			<div class="mt-4 grid gap-4 sm:grid-cols-2">
-				<label class="label sm:col-span-2">
-					URL del manifiesto de actualizaciones
-					<input
-						type="url"
-						bind:value={configuracion.actualizaciones_url}
-						placeholder="https://…/latest.json"
-						class="input font-mono text-xs"
-					/>
-					<span class="text-[11px] font-medium normal-case tracking-normal text-slate-400">
-						Vacío = auto-update deshabilitado. Por defecto apunta a GitHub Releases.
-					</span>
-				</label>
-				<label
-					class="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3 text-sm font-semibold text-slate-700 sm:col-span-2"
-				>
-					<input
-						type="checkbox"
-						bind:checked={configuracion.actualizaciones_auto}
-						class="h-4 w-4 rounded border-slate-300 accent-indigo-600"
-					/>
-					Verificar actualizaciones al iniciar
-				</label>
-			</div>
-
 			<div class="mt-5 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-4">
 				<button
 					onclick={() => void verificarActualizaciones(true)}
@@ -557,11 +413,6 @@
 					</div>
 				</div>
 			{/if}
-
-			<p class="mt-3 text-xs leading-relaxed text-slate-500">
-				Los releases se firman con la clave privada local (fuera del repositorio). Si el manifiesto
-				o la firma no coinciden, la actualización se rechaza y la app sigue funcionando.
-			</p>
 		{:else}
 			<div class="mt-4 flex items-center gap-2 text-sm text-slate-500">
 				<span class="h-2 w-2 animate-pulse-soft rounded-full bg-indigo-500"></span>
@@ -575,27 +426,27 @@
 			<div>
 				<h2 class="section-title">Mercado Pago</h2>
 				<p class="section-subtitle">
-					Access Token guardado en el keyring cifrado de Windows. El backend solo informa si existe;
-					nunca lo devuelve ni lo escribe en el log. La sincronización de pagos sigue diferida.
+					Ingresá la credencial para consultar los cobros. Se guarda de forma segura y nunca se
+					muestra nuevamente. La sincronización de pagos estará disponible próximamente.
 				</p>
 			</div>
 			<span class="badge {tieneToken ? 'badge-success' : 'badge-neutral'}">
-				{tieneToken ? 'Token configurado' : 'Sin token'}
+				{tieneToken ? 'Credencial configurada' : 'Sin credencial'}
 			</span>
 		</div>
 
 		{#if !enTauri}
-			<div class="alert-warn mt-4">Modo navegador: el token se guarda solo en memoria (mock).</div>
+			<div class="alert-warn mt-4">Modo navegador: la credencial se guarda solo en memoria.</div>
 		{/if}
 
 		<label class="label mt-4">
-			Access Token
+			Credencial de Mercado Pago
 			<input
 				type="password"
 				autocomplete="off"
 				bind:value={tokenMp}
-				placeholder="APP_USR-… o TEST-…"
-				class="input font-mono text-xs"
+				placeholder="Pegá acá la credencial"
+				class="input text-sm"
 			/>
 		</label>
 
@@ -605,11 +456,11 @@
 				disabled={guardandoToken || !tokenMp.trim()}
 				class="btn-primary"
 			>
-				{guardandoToken ? 'Guardando…' : tieneToken ? 'Reemplazar token' : 'Guardar token'}
+				{guardandoToken ? 'Guardando…' : tieneToken ? 'Reemplazar credencial' : 'Guardar credencial'}
 			</button>
 			{#if tieneToken}
 				<button onclick={() => void quitarToken()} disabled={guardandoToken} class="btn-secondary">
-					Quitar token
+					Quitar credencial
 				</button>
 			{/if}
 		</div>

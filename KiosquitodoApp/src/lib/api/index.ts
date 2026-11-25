@@ -125,6 +125,16 @@ export function cerrarCaja(fecha: string): Promise<CierrePersistido> {
 	return ejecutar<CierrePersistido>('cerrar_caja', { fecha });
 }
 
+/** ¿La fecha ya está cerrada? Permite mostrar la opción de reapertura. */
+export function cajaEstaCerrada(fecha: string): Promise<boolean> {
+	return ejecutar<boolean>('caja_esta_cerrada', { fecha });
+}
+
+/** Reabre el día borrando su cierre; idempotente. */
+export function reabrirCaja(fecha: string): Promise<void> {
+	return ejecutar<void>('reabrir_caja', { fecha });
+}
+
 /** Historial de cierres, más reciente primero. */
 export function listarCierres(): Promise<CierrePersistido[]> {
 	return ejecutar<CierrePersistido[]>('listar_cierres', {});

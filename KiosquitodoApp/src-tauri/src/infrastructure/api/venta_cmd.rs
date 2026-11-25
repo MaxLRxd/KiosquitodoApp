@@ -1,14 +1,20 @@
 //! Commands Tauri del módulo de ventas (POS local, R9).
 
+use crate::application::cierre_service::CierreService;
 use crate::application::venta_service::VentaService;
 use crate::domain::venta::{DevolucionRegistrada, NuevaVenta, Venta, VentaItem};
-use crate::infrastructure::db::{DbConn, repos::{VentaSqlite, ProductoSqlite}};
+use crate::infrastructure::db::{DbConn, repos::{CierreSqlite, VentaSqlite, ProductoSqlite}};
 use crate::ports::venta_repo::VentaRepo;
 use tauri::State;
 
 /// Registra una venta descontando stock y validando el medio de pago (R9).
 #[tauri::command]
 pub fn registrar_venta(db: State<'_, DbConn>, nueva: NuevaVenta) -> Result<Venta, String> {
+    let hoy = chrono::Local::now().format("%Y-%m-%d").to_string();
+    CierreService::new(CierreSqlite::new(db.inner().clone()))
+        .validar_caja_abierta(&hoy)
+        .map_err(|e| e.to_string())?;
+
     let venta_repo = VentaSqlite::new(db.inner().clone());
     let producto_repo = ProductoSqlite::new(db.inner().clone());
     let venta = VentaService::new(venta_repo, producto_repo)
@@ -49,13 +55,18 @@ pub fn listar_ventas_dia(
 }
 
 /// Registra una devolución y repone el stock de los ítems devueltos.
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub fn registrar_devolucion(
     db: State<'_, DbConn>,
     venta_id: i64,
     items: Vec<VentaItem>,
     motivo: Option<String>,
 ) -> Result<(), String> {
+    let hoy = chrono::Local::now().format("%Y-%m-%d").to_string();
+    CierreService::new(CierreSqlite::new(db.inner().clone()))
+        .validar_caja_abierta_para_devolucion(&hoy)
+        .map_err(|e| e.to_string())?;
+
     let venta_repo = VentaSqlite::new(db.inner().clone());
     let producto_repo = ProductoSqlite::new(db.inner().clone());
     VentaService::new(venta_repo, producto_repo)

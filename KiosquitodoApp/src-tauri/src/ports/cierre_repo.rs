@@ -23,6 +23,12 @@ pub trait CierreRepo: Send + Sync {
     /// Lista los cierres anteriores, más reciente primero.
     fn obtener_cierres(&self) -> AppResult<Vec<CierrePersistido>>;
 
+    /// Indica si la fecha `YYYY-MM-DD` ya fue cerrada.
+    fn esta_cerrado(&self, fecha: &str) -> AppResult<bool>;
+
+    /// Reabre la fecha eliminando su cierre persistido (idempotente).
+    fn reabrir(&self, fecha: &str) -> AppResult<()>;
+
     /// Compacta el archivo de la BD (VACUUM). Se ejecuta tras consolidar el
     /// cierre, cuando la base ya no está en una transacción activa.
     fn vacuar(&self) -> AppResult<()>;

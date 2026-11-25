@@ -3,8 +3,15 @@
 	import { isTauri } from '@tauri-apps/api/core';
 	import { save } from '@tauri-apps/plugin-dialog';
 	import { writeTextFile } from '@tauri-apps/plugin-fs';
-	import { cerrarCaja, exportarCierresCsv, listarCierres, resumenDiario } from '$lib/api';
-	import { notificar } from '$lib/stores/app.svelte';
+	import {
+		cajaEstaCerrada,
+		cerrarCaja,
+		exportarCierresCsv,
+		listarCierres,
+		reabrirCaja,
+		resumenDiario
+	} from '$lib/api';
+	import { mensajeError, notificar } from '$lib/stores/app.svelte';
 	import { reproducirSonido } from '$lib/utils/sonido';
 	import { formatearPesos } from '$lib/utils/moneda';
 	import type { CierrePersistido, ResumenCierre } from '$lib/types';
@@ -20,15 +27,22 @@
 	let cierres = $state<CierrePersistido[]>([]);
 	let cargandoResumen = $state(false);
 	let cerrando = $state(false);
+	let cerrada = $state(false);
+	let reabriendo = $state(false);
 	let rangoDesde = $state('');
 	let rangoHasta = $state('');
 
 	async function cargarResumen(): Promise<void> {
 		cargandoResumen = true;
 		try {
-			resumen = await resumenDiario(fecha);
+			const [resumenDia, cajaCerrada] = await Promise.all([
+				resumenDiario(fecha),
+				cajaEstaCerrada(fecha)
+			]);
+			resumen = resumenDia;
+			cerrada = cajaCerrada;
 		} catch (e) {
-			notificar((e as Error).message, 'error', true);
+			notificar(mensajeError(e), 'error', true);
 		} finally {
 			cargandoResumen = false;
 		}
@@ -38,7 +52,7 @@
 		try {
 			cierres = await listarCierres();
 		} catch (e) {
-			notificar((e as Error).message, 'error', true);
+			notificar(mensajeError(e), 'error', true);
 		}
 	}
 
@@ -54,9 +68,25 @@
 			notificar(`Cierre del ${fecha} registrado (${resumen.cantidad_ventas} ventas)`, 'success');
 			await Promise.all([cargarResumen(), cargarCierres()]);
 		} catch (e) {
-			notificar((e as Error).message, 'error', true);
+			notificar(mensajeError(e), 'error', true);
 		} finally {
 			cerrando = false;
+		}
+	}
+
+	async function reabrirCajaDia(): Promise<void> {
+		if (reabriendo) return;
+		if (!window.confirm(`¿Reabrir la caja del ${fecha}? Podrás volver a registrar ventas.`)) return;
+
+		reabriendo = true;
+		try {
+			await reabrirCaja(fecha);
+			notificar(`Caja del ${fecha} reabierta`, 'success');
+			await Promise.all([cargarResumen(), cargarCierres()]);
+		} catch (e) {
+			notificar(mensajeError(e), 'error', true);
+		} finally {
+			reabriendo = false;
 		}
 	}
 
@@ -83,7 +113,7 @@
 			}
 			notificar('Historial de cierres exportado a CSV', 'success');
 		} catch (e) {
-			notificar((e as Error).message, 'error', true);
+			notificar(mensajeError(e), 'error', true);
 		}
 	}
 
@@ -108,14 +138,23 @@
 			<p class="eyebrow">Operación diaria</p>
 			<h1 class="page-title mt-1">Cierre de caja</h1>
 			<p class="page-subtitle">
-				Resumen diario con totales, margen bruto estimado y delta de conciliación MP. El cierre no
-				bloquea el sistema: puede ejecutarse en cualquier momento.
+				Resumen diario con totales, margen bruto estimado y delta de conciliación MP. Al cerrar,
+				se impiden nuevas ventas hasta que reabras la caja.
 			</p>
 		</div>
-		<label class="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-500">
-			Fecha
-			<input type="date" bind:value={fecha} class="input-compact" />
-		</label>
+		<div class="flex flex-wrap items-center gap-3">
+			<span
+				class="badge {cerrada
+					? 'bg-rose-100 text-rose-700'
+					: 'bg-emerald-100 text-emerald-700'}"
+			>
+				{cerrada ? 'Caja cerrada' : 'Caja abierta'}
+			</span>
+			<label class="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-500">
+				Fecha
+				<input type="date" bind:value={fecha} class="input-compact" />
+			</label>
+		</div>
 	</div>
 
 	{#if cargandoResumen}
@@ -171,16 +210,25 @@
 				Pago diferida, todo lo cobrado por MP figura aún como no acreditado.
 			</p>
 			<div class="flex items-center gap-3">
-				{#if resumen.cantidad_ventas === 0}
-					<span class="text-xs text-slate-400">Sin ventas en la fecha seleccionada.</span>
+				{#if cerrada}
+					<span class="text-xs font-semibold text-rose-600">
+						Reabrí la caja para registrar más ventas.
+					</span>
+					<button onclick={reabrirCajaDia} disabled={reabriendo} class="btn-primary">
+						{reabriendo ? 'Reabriendo…' : 'Reabrir caja'}
+					</button>
+				{:else}
+					{#if resumen.cantidad_ventas === 0}
+						<span class="text-xs text-slate-400">Sin ventas en la fecha seleccionada.</span>
+					{/if}
+					<button
+						onclick={cerrarCajaDia}
+						disabled={cerrando || resumen.cantidad_ventas === 0}
+						class="btn-primary"
+					>
+						{cerrando ? 'Registrando…' : 'Cerrar caja del día'}
+					</button>
 				{/if}
-				<button
-					onclick={cerrarCajaDia}
-					disabled={cerrando || resumen.cantidad_ventas === 0}
-					class="btn-primary"
-				>
-					{cerrando ? 'Registrando…' : 'Cerrar caja del día'}
-				</button>
 			</div>
 		</div>
 	{/if}

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import {
+		cajaEstaCerrada,
 		listarDevoluciones,
 		listarProductos,
 		listarVentasDia,
@@ -43,6 +44,7 @@
 	let devoluciones = $state<DevolucionRegistrada[]>([]);
 	let nombres = $state<Record<number, string>>({});
 	let cargandoVentas = $state(false);
+	let cajaCerrada = $state(false);
 
 	let busquedaId = $state('');
 	let ventaBusqueda = $state<Venta | null>(null);
@@ -71,7 +73,7 @@
 		try {
 			ventas = await listarVentasDia(fecha);
 		} catch (e) {
-			notificar((e as Error).message, 'error', true);
+			notificar(e, 'error', true);
 		} finally {
 			cargandoVentas = false;
 		}
@@ -81,25 +83,45 @@
 		try {
 			devoluciones = await listarDevoluciones();
 		} catch (e) {
-			notificar((e as Error).message, 'error', true);
+			notificar(e, 'error', true);
 		}
 	}
 
 	async function buscarVenta(): Promise<void> {
-		const id = Number(busquedaId.trim());
-		if (!id) {
-			notificar('Ingresá un número de venta', 'warn', true);
+		const texto = busquedaId.trim().replace(/^#/, '').trim();
+		const id = Number(texto);
+		if (!texto || !Number.isSafeInteger(id) || id <= 0) {
+			ventaBusqueda = null;
+			notificar('Ingresá un número de venta válido (por ejemplo: 12)', 'warn', true);
 			return;
 		}
 		try {
 			ventaBusqueda = await obtenerVenta(id);
 			if (!ventaBusqueda) notificar(`No existe la venta #${id}`, 'warn', true);
 		} catch (e) {
-			notificar((e as Error).message, 'error', true);
+			notificar(e, 'error', true);
 		}
 	}
 
-	function abrirDevolucion(v: Venta): void {
+	async function verificarCaja(): Promise<boolean> {
+		try {
+			cajaCerrada = await cajaEstaCerrada(hoy());
+			if (cajaCerrada) {
+				notificar(
+					'La caja está cerrada. Reabrila desde Cierre de caja antes de hacer devoluciones.',
+					'warn',
+					true
+				);
+			}
+			return cajaCerrada;
+		} catch (e) {
+			notificar(e, 'error', true);
+			return false;
+		}
+	}
+
+	async function abrirDevolucion(v: Venta): Promise<void> {
+		if (await verificarCaja()) return;
 		ventaSel = v;
 		cantidades = {};
 		for (const it of v.items) cantidades[it.producto_id] = String(it.cantidad);
@@ -108,7 +130,7 @@
 	}
 
 	async function confirmarDevolucion(): Promise<void> {
-		if (!ventaSel || devolviendo) return;
+		if (!ventaSel || devolviendo || (await verificarCaja())) return;
 		const items: ItemVenta[] = [];
 		for (const it of ventaSel.items) {
 			const q = Math.floor(Number(cantidades[it.producto_id]));
@@ -134,7 +156,7 @@
 			await Promise.all([cargarVentas(), cargarDevoluciones()]);
 			if (ventaBusqueda && items.length > 0) ventaBusqueda = await obtenerVenta(ventaBusqueda.id);
 		} catch (e) {
-			notificar((e as Error).message, 'error', true);
+			notificar(e, 'error', true);
 		} finally {
 			devolviendo = false;
 		}
@@ -146,6 +168,7 @@
 	});
 
 	onMount(() => {
+		void verificarCaja();
 		void cargarDevoluciones();
 		void listarProductos('', null, 1000, 0)
 			.then((ps) => {
@@ -169,12 +192,19 @@
 		</div>
 	</div>
 
+	{#if cajaCerrada}
+		<div class="alert-warn mt-4" role="alert">
+			La caja de hoy está cerrada. Reabrila desde Cierre de caja antes de hacer devoluciones.
+		</div>
+	{/if}
+
 	<section class="card card-pad mt-5">
 		<h2 class="card-title">Buscar venta original</h2>
 		<p class="section-subtitle">Ingresá el número de ticket impreso o visible en el POS.</p>
 		<div class="mt-3 flex flex-wrap items-center gap-2">
 			<input
-				type="number"
+				type="text"
+				inputmode="numeric"
 				bind:value={busquedaId}
 				placeholder="N° de venta"
 				class="input-compact w-40"
@@ -212,7 +242,11 @@
 						<p class="mt-1.5 text-lg font-bold tabular-nums text-slate-900">
 							{formatearPesos(ventaBusqueda.total)}
 						</p>
-						<button onclick={() => abrirDevolucion(ventaBusqueda!)} class="btn-danger btn-sm mt-2">
+						<button
+							onclick={() => void abrirDevolucion(ventaBusqueda!)}
+							disabled={cajaCerrada}
+							class="btn-danger btn-sm mt-2"
+						>
 							Devolver
 						</button>
 					</div>
@@ -267,7 +301,7 @@
 							<p class="mt-1.5 text-lg font-bold tabular-nums text-slate-900">
 								{formatearPesos(v.total)}
 							</p>
-							<button onclick={() => abrirDevolucion(v)} class="btn-danger btn-sm mt-2">
+							<button onclick={() => void abrirDevolucion(v)} disabled={cajaCerrada} class="btn-danger btn-sm mt-2">
 								Devolver
 							</button>
 						</div>

@@ -149,6 +149,21 @@ fn flujo_completo_en_bd_real() {
     assert!(csv.contains("cantidad_ventas"));
     assert!(csv.contains("1"));
 
+    let error_caja = c_svc.validar_caja_abierta(&fecha).unwrap_err().to_string();
+    assert!(error_caja.contains("Reabrí la caja"));
+    let error_devolucion = c_svc
+        .validar_caja_abierta_para_devolucion(&fecha)
+        .unwrap_err()
+        .to_string();
+    assert!(error_devolucion.contains("hacer devoluciones"));
+
+    c_svc.reabrir_caja(&fecha).expect("reabrir caja");
+    assert!(c_svc.validar_caja_abierta(&fecha).is_ok());
+    assert!(c_svc
+        .validar_caja_abierta_para_devolucion(&fecha)
+        .is_ok());
+    assert!(c_svc.listar_cierres().unwrap().is_empty());
+
     // Se deja el archivo en `datos-pruebas/flujo_integracion.db` para poder
     // abrirlo y verificar la persistencia.
     drop(db);

@@ -24,7 +24,7 @@ pub fn crear_producto(
 }
 
 /// Lista productos con filtro de texto, categoría y paginación.
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub fn listar_productos(
     db: State<'_, DbConn>,
     filtro: String,
@@ -82,7 +82,7 @@ pub fn eliminar_producto(db: State<'_, DbConn>, id: i64) -> Result<(), String> {
 }
 
 /// Ajuste manual de stock registrando el movimiento.
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub fn ajustar_stock(
     db: State<'_, DbConn>,
     id: i64,

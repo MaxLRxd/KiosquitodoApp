@@ -73,6 +73,8 @@ pub fn run() {
             venta_cmd::listar_devoluciones,
             caja_cmd::resumen_diario,
             caja_cmd::cerrar_caja,
+            caja_cmd::caja_esta_cerrada,
+            caja_cmd::reabrir_caja,
             caja_cmd::listar_cierres,
             caja_cmd::exportar_cierres_csv,
             config_cmd::obtener_rutas,

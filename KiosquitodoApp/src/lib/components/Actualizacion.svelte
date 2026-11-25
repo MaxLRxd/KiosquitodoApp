@@ -37,7 +37,7 @@
 
 			<p class="mt-3 text-sm text-slate-600">
 				Tenés la versión <span class="font-semibold">{actualizaciones.disponible.version_actual}</span>.
-				La actualización se descarga, se verifica con la firma digital y se instala sola.
+				La nueva versión se descarga y se instala de forma segura.
 			</p>
 
 			{#if actualizaciones.disponible.notas}

@@ -229,7 +229,7 @@ pub fn verificar_backup_diario(db: State<'_, DbConn>) -> Result<Option<String>, 
 }
 
 /// Elimina backups más viejos que `retencion_dias`; devuelve cuántos borró.
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 pub fn limpiar_backups_viejos(db: State<'_, DbConn>, retencion_dias: u32) -> Result<usize, String> {
     let dir = backup_dir_configurado(db.inner())?;
     backup::limpiar_backups_viejos(Path::new(&dir), retencion_dias).map_err(|e| e.to_string())

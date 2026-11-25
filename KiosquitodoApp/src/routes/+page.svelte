@@ -47,7 +47,12 @@
 			return;
 		}
 		carrito.agregar(producto);
-		notificar(`${producto.nombre} — ${formatearPesos(producto.precio_venta)}`, 'success');
+		notificar(
+			`Agregado: ${producto.nombre} — ${formatearPesos(producto.precio_venta)}`,
+			'success',
+			false,
+			'arriba-izquierda'
+		);
 		reproducirSonido('scan_ok');
 		idBusqueda++;
 		resultados = [];
@@ -77,8 +82,7 @@
 			const productos = await listarProductos('', null, 100, 0);
 			catalogo = productos.filter((producto) => producto.stock > 0);
 		} catch (e) {
-			const mensaje = e instanceof Error ? e.message : String(e);
-			notificar(mensaje, 'error', true);
+			notificar(e, 'error', true);
 			catalogo = [];
 		} finally {
 			cargandoCatalogo = false;
@@ -108,8 +112,7 @@
 			if (sinResultados) reproducirSonido('scan_error');
 		} catch (e) {
 			if (id !== idBusqueda) return;
-			const mensaje = e instanceof Error ? e.message : String(e);
-			notificar(mensaje, 'error', true);
+			notificar(e, 'error', true);
 			resultados = [];
 			sinResultados = true;
 		} finally {
@@ -219,8 +222,7 @@
 			limpiarPago();
 			void cargarCatalogo();
 		} catch (e) {
-			const mensaje = e instanceof Error ? e.message : String(e);
-			notificar(mensaje, 'error', true);
+			notificar(e, 'error', true);
 			reproducirSonido('sistema_error');
 		} finally {
 			cobrando = false;

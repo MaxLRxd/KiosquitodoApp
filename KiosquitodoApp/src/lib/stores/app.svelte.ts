@@ -1,10 +1,23 @@
 export type TipoNotificacion = 'info' | 'success' | 'warn' | 'error';
+export type ZonaNotificacion = 'abajo-derecha' | 'arriba-izquierda';
 
 export interface Notificacion {
 	id: number;
 	mensaje: string;
 	tipo: TipoNotificacion;
 	critico: boolean;
+	zona: ZonaNotificacion;
+}
+
+/** Normaliza cualquier rechazo (Error, string, objeto con `message`) a texto visible. */
+export function mensajeError(error: unknown): string {
+	if (error instanceof Error && error.message.trim()) return error.message;
+	if (typeof error === 'string' && error.trim()) return error;
+	if (error && typeof error === 'object' && 'message' in error) {
+		const mensaje = (error as { message: unknown }).message;
+		if (typeof mensaje === 'string' && mensaje.trim()) return mensaje;
+	}
+	return 'Ocurrió un problema. Intentá de nuevo.';
 }
 
 export const appState = $state({
@@ -20,11 +33,16 @@ export const appState = $state({
 
 let proximoId = 1;
 
-export function notificar(mensaje: string, tipo: TipoNotificacion = 'info', critico = false): void {
+export function notificar(
+	mensaje: unknown,
+	tipo: TipoNotificacion = 'info',
+	critico = false,
+	zona: ZonaNotificacion = 'abajo-derecha'
+): void {
 	const id = proximoId++;
-	appState.toasts = [...appState.toasts, { id, mensaje, tipo, critico }];
+	appState.toasts = [...appState.toasts, { id, mensaje: mensajeError(mensaje), tipo, critico, zona }];
 	if (!critico) {
-		setTimeout(() => cerrar(id), 3500);
+		setTimeout(() => cerrar(id), zona === 'arriba-izquierda' ? 1800 : 3500);
 	}
 }
 

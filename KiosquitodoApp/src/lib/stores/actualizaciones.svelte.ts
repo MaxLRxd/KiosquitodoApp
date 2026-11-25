@@ -5,7 +5,7 @@ import {
 	estadoActualizacion,
 	instalarActualizacion
 } from '$lib/api';
-import { notificar } from '$lib/stores/app.svelte';
+import { mensajeError, notificar } from '$lib/stores/app.svelte';
 import type {
 	EstadoActualizacion,
 	InfoActualizacion,
@@ -57,7 +57,7 @@ export async function verificarActualizaciones(manual = false): Promise<void> {
 			if (manual) notificar('La app está actualizada', 'success');
 		}
 	} catch (e) {
-		const mensaje = e instanceof Error ? e.message : String(e);
+		const mensaje = mensajeError(e);
 		actualizaciones.error = mensaje;
 		if (manual) notificar(mensaje, 'error', true);
 		else console.warn('No se pudo verificar actualizaciones:', mensaje);
@@ -81,7 +81,7 @@ export async function instalarActualizacionDisponible(): Promise<void> {
 		actualizaciones.resultado = `Actualización ${version} instalada. Reiniciando…`;
 		notificar(`Actualización ${version} instalada`, 'success');
 	} catch (e) {
-		const mensaje = e instanceof Error ? e.message : String(e);
+		const mensaje = mensajeError(e);
 		actualizaciones.error = mensaje;
 		notificar(mensaje, 'error', true);
 	} finally {

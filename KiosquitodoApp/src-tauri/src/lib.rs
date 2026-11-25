@@ -6,7 +6,7 @@ pub mod infrastructure;
 pub mod ports;
 
 use application::config_service::ConfigService;
-use infrastructure::api::{caja_cmd, config_cmd, producto_cmd, venta_cmd};
+use infrastructure::api::{caja_cmd, config_cmd, producto_cmd, updater_cmd, venta_cmd};
 use infrastructure::db::repos::ConfigSqlite;
 use infrastructure::db::DbConn;
 use infrastructure::system::backup;
@@ -92,6 +92,9 @@ pub fn run() {
             config_cmd::crear_backup_manual,
             config_cmd::verificar_backup_diario,
             config_cmd::limpiar_backups_viejos,
+            updater_cmd::estado_actualizacion,
+            updater_cmd::buscar_actualizacion,
+            updater_cmd::instalar_actualizacion,
         ])
         .run(tauri::generate_context!())
         .expect("error al iniciar la aplicación Tauri");

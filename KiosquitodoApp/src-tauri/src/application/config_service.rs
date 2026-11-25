@@ -12,6 +12,8 @@ const CLAVE_SYNC: &str = "sync_intervalo_minutos";
 const CLAVE_INACTIVIDAD: &str = "inactividad_minutos";
 const CLAVE_SONIDOS: &str = "sonidos_activos";
 const CLAVE_BACKUP_DIR: &str = "backup_dir";
+const CLAVE_ACTUALIZACIONES_URL: &str = "actualizaciones_url";
+const CLAVE_ACTUALIZACIONES_AUTO: &str = "actualizaciones_auto";
 
 /// Configuración de la app expuesta al frontend (espejo en `lib/types`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -25,6 +27,11 @@ pub struct ConfiguracionApp {
     pub sonidos_activos: bool,
     /// Directorio configurado para los backups automáticos.
     pub backup_dir: String,
+    /// Manifiesto `latest.json` del servidor de actualizaciones.
+    /// Vacío = auto-update deshabilitado.
+    pub actualizaciones_url: String,
+    /// Verificar actualizaciones al iniciar la app.
+    pub actualizaciones_auto: bool,
 }
 
 impl ConfiguracionApp {
@@ -36,6 +43,8 @@ impl ConfiguracionApp {
             inactividad_minutos: defaults::INACTIVIDAD_MINUTOS_DEFAULT,
             sonidos_activos: defaults::SONIDOS_ACTIVOS_DEFAULT,
             backup_dir: backup_dir_default.to_string(),
+            actualizaciones_url: defaults::ACTUALIZACIONES_URL_DEFAULT.to_string(),
+            actualizaciones_auto: defaults::ACTUALIZACIONES_AUTO_DEFAULT,
         }
     }
 }
@@ -67,6 +76,14 @@ impl<R: ConfigRepo> ConfigService<R> {
                 .repo
                 .obtener(CLAVE_BACKUP_DIR)?
                 .unwrap_or(por_defecto.backup_dir),
+            actualizaciones_url: self
+                .repo
+                .obtener(CLAVE_ACTUALIZACIONES_URL)?
+                .unwrap_or(por_defecto.actualizaciones_url),
+            actualizaciones_auto: self.leer_bool(
+                CLAVE_ACTUALIZACIONES_AUTO,
+                por_defecto.actualizaciones_auto,
+            )?,
         })
     }
 
@@ -80,6 +97,15 @@ impl<R: ConfigRepo> ConfigService<R> {
         if configuracion.backup_dir.trim().is_empty() {
             return Err(AppError::negocio(
                 "La carpeta de backups no puede estar vacía",
+            ));
+        }
+        let actualizaciones_url = configuracion.actualizaciones_url.trim();
+        if !actualizaciones_url.is_empty()
+            && !actualizaciones_url.starts_with("https://")
+            && !actualizaciones_url.starts_with("http://")
+        {
+            return Err(AppError::negocio(
+                "La URL de actualizaciones debe empezar con https:// o http://",
             ));
         }
 
@@ -101,6 +127,16 @@ impl<R: ConfigRepo> ConfigService<R> {
         )?;
         self.repo
             .guardar(CLAVE_BACKUP_DIR, configuracion.backup_dir.trim())?;
+        self.repo
+            .guardar(CLAVE_ACTUALIZACIONES_URL, actualizaciones_url)?;
+        self.repo.guardar(
+            CLAVE_ACTUALIZACIONES_AUTO,
+            if configuracion.actualizaciones_auto {
+                "true"
+            } else {
+                "false"
+            },
+        )?;
 
         self.obtener()
     }
@@ -172,6 +208,8 @@ mod tests {
         assert_eq!(configuracion.inactividad_minutos, 5);
         assert!(configuracion.sonidos_activos);
         assert_eq!(configuracion.backup_dir, "C:/backups");
+        assert!(configuracion.actualizaciones_auto);
+        assert!(configuracion.actualizaciones_url.ends_with("/latest.json"));
     }
 
     #[test]
@@ -182,6 +220,8 @@ mod tests {
             inactividad_minutos: 0,
             sonidos_activos: false,
             backup_dir: "D:/KioscoBackups".to_string(),
+            actualizaciones_url: "https://updates.example.com/latest.json".to_string(),
+            actualizaciones_auto: false,
         };
         assert_eq!(svc.guardar(&cambios).unwrap(), cambios);
         assert_eq!(svc.obtener().unwrap(), cambios);
@@ -196,6 +236,17 @@ mod tests {
 
         cambios.sync_intervalo_minutos = 15;
         cambios.backup_dir = "   ".to_string();
+        assert!(svc.guardar(&cambios).is_err());
+    }
+
+    #[test]
+    fn acepta_url_vacia_y_rechaza_esquemas_desconocidos() {
+        let svc = servicio();
+        let mut cambios = ConfiguracionApp::por_defecto("C:/backups");
+        cambios.actualizaciones_url = "   ".to_string();
+        assert!(svc.guardar(&cambios).unwrap().actualizaciones_url.is_empty());
+
+        cambios.actualizaciones_url = "ftp://updates.example.com/latest.json".to_string();
         assert!(svc.guardar(&cambios).is_err());
     }
 

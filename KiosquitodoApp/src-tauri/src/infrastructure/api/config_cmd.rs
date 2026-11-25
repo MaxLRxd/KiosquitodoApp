@@ -41,7 +41,8 @@ impl From<AppConfig> for RutasApp {
 }
 
 /// Arma el servicio de configuración con la carpeta de backups por defecto.
-fn servicio_config(db: &DbConn) -> Result<ConfigService<ConfigSqlite>, String> {
+/// `pub(crate)` para que otros comandos (updater) lean las mismas preferencias.
+pub(crate) fn servicio_config(db: &DbConn) -> Result<ConfigService<ConfigSqlite>, String> {
     let cfg = AppConfig::resolver().map_err(|e| e.to_string())?;
     Ok(ConfigService::new(
         ConfigSqlite::new(db.clone()),

@@ -1,0 +1,11 @@
+CORRECCIÓNES
+1. una vez se cierra la caja no se puede volver a registrar ventas ese dia: corregír, se debe poder reabrir(el error: esta bien que no deje, pero que el mensaje de error aclare que se debe volver a abrir para poder cerrar. Por lo tanto, hay que implementar una funcionalidad para volver a abrirla)
+2. No se que tan buena practica sea el apartado de "ingresar el token" de la api de mercado pago, ver como manejarlo profesionalmente.
+3. Ocultar la URL del "manifiesto de actualizaciones". Que solo haya opción para buscarlas y listo.
+4. "Sistema y registros" debería solo dar opción de seleccionar una carpeta para guardar el backup, nada más. Se lo podría unir con la sección de abajo, de preferencias, ya que es de lo mismo. Respecto a esto, elimina lenguaje tecnico, que sea más entendible por la persona que lo vaya a usar.
+5. Al agregar productos al carro el mensaje de exito resulta molesto, mover a una zona que no conflictue con lo principal, por ejemplo: arriba a la izquierda, o abajo.
+6."Buscar numero de venta" no trae la venta seleccionada por su numero.
+7. Los mensajes de error no se muestran, solo sale el rectangulo en rojo sin ningun mensaje.
+8. El filtro de "categoría" no funciona(en inventario), el buscador si.
+9. Acceso y bloqueo no está funcionando. Además, es irrelevante para el usuario el mensaje que se muestra en la sección de NUEVO PIN("Acceso y bloqueo", dentro de configuración). El usuario no entiende ni le interesa como se guarda su pin. Este PIN es para que usuarios indebidos no puedan ingresar al sistema, no solo para bloquear por inactividad, por lo que al abrir la app debería pedir pin(menos la primera vez).
+10. 

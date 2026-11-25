@@ -99,6 +99,33 @@ export interface ConfiguracionApp {
 	inactividad_minutos: number; // 0 = desactivado
 	sonidos_activos: boolean;
 	backup_dir: string;
+	/** Manifiesto `latest.json`; vacío = auto-update deshabilitado. */
+	actualizaciones_url: string;
+	/** Verificar actualizaciones al iniciar la app. */
+	actualizaciones_auto: boolean;
+}
+
+/** Estado del auto-update que muestra Configuración. */
+export interface EstadoActualizacion {
+	version_actual: string;
+	endpoint: string;
+	endpoint_configurado: boolean;
+	auto_verificar: boolean;
+}
+
+/** Versión disponible en el servidor de actualizaciones. */
+export interface InfoActualizacion {
+	version_actual: string;
+	version_nueva: string;
+	notas: string | null;
+	fecha: string | null;
+}
+
+/** Progreso de descarga emitido por el backend. */
+export interface ProgresoActualizacion {
+	descargado: number;
+	total: number | null;
+	porcentaje: number | null;
 }
 
 export interface MpPago {

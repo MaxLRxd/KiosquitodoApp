@@ -22,6 +22,14 @@ pub mod defaults {
     /// Feedback sonoro activo por defecto.
     pub const SONIDOS_ACTIVOS_DEFAULT: bool = true;
 
+    /// Manifiesto de actualizaciones publicado con cada release.
+    /// Se puede cambiar desde Configuración (p. ej. para hosting propio).
+    pub const ACTUALIZACIONES_URL_DEFAULT: &str =
+        "https://github.com/MaxLRxd/KiosquitodoApp/releases/latest/download/latest.json";
+
+    /// Verificar actualizaciones al iniciar la app.
+    pub const ACTUALIZACIONES_AUTO_DEFAULT: bool = true;
+
     /// Stock mínimo por defecto para nuevos productos.
     pub const STOCK_MINIMO_DEFAULT: i64 = 5;
 
@@ -118,6 +126,10 @@ mod tests {
         // Bloqueo por inactividad a los 5 minutos, con sonidos activos
         assert_eq!(defaults::INACTIVIDAD_MINUTOS_DEFAULT, 5);
         assert!(defaults::SONIDOS_ACTIVOS_DEFAULT);
+        // Auto-update apuntando al manifiesto de releases del repositorio
+        assert!(defaults::ACTUALIZACIONES_URL_DEFAULT.starts_with("https://"));
+        assert!(defaults::ACTUALIZACIONES_URL_DEFAULT.ends_with("/latest.json"));
+        assert!(defaults::ACTUALIZACIONES_AUTO_DEFAULT);
     }
 
     #[test]

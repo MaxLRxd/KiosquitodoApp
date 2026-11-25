@@ -401,7 +401,10 @@ describe('mock: preferencias', () => {
 			sync_intervalo_minutos: 15,
 			inactividad_minutos: 5,
 			sonidos_activos: true,
-			backup_dir: 'mock://KioscoBackups'
+			backup_dir: 'mock://KioscoBackups',
+			actualizaciones_url:
+				'https://github.com/MaxLRxd/KiosquitodoApp/releases/latest/download/latest.json',
+			actualizaciones_auto: true
 		});
 	});
 
@@ -410,7 +413,9 @@ describe('mock: preferencias', () => {
 			sync_intervalo_minutos: 30,
 			inactividad_minutos: 0,
 			sonidos_activos: false,
-			backup_dir: 'mock://OtraCarpeta'
+			backup_dir: 'mock://OtraCarpeta',
+			actualizaciones_url: 'https://updates.example.com/latest.json',
+			actualizaciones_auto: false
 		};
 		const guardada = await ejecutarMock<ConfiguracionApp>('guardar_configuracion', {
 			configuracion: cambios
@@ -426,7 +431,9 @@ describe('mock: preferencias', () => {
 					sync_intervalo_minutos: 0,
 					inactividad_minutos: 5,
 					sonidos_activos: true,
-					backup_dir: 'mock://KioscoBackups'
+					backup_dir: 'mock://KioscoBackups',
+					actualizaciones_url: '',
+					actualizaciones_auto: true
 				}
 			})
 		).toThrow(/al menos 1 minuto/);
@@ -493,7 +500,9 @@ describe('mock: token MP y carpeta de backups', () => {
 				sync_intervalo_minutos: 15,
 				inactividad_minutos: 5,
 				sonidos_activos: true,
-				backup_dir: 'mock://OtraCarpeta'
+				backup_dir: 'mock://OtraCarpeta',
+				actualizaciones_url: '',
+				actualizaciones_auto: false
 			}
 		});
 		const ruta = await ejecutarMock<string>('crear_backup_manual');

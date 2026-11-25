@@ -4,6 +4,7 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import type { Snippet } from 'svelte';
+	import Actualizacion from '$lib/components/Actualizacion.svelte';
 	import Bloqueo from '$lib/components/Bloqueo.svelte';
 	import IconoModulo from '$lib/components/IconoModulo.svelte';
 	import Toast from '$lib/components/Toast.svelte';
@@ -276,6 +277,8 @@
 		</main>
 	</div>
 </div>
+
+<Actualizacion />
 
 {#if appState.bloqueado}
 	<Bloqueo />

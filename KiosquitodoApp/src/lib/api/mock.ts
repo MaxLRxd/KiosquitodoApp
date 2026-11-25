@@ -4,6 +4,8 @@ import type {
 	ConfiguracionApp,
 	CierrePersistido,
 	DevolucionRegistrada,
+	EstadoActualizacion,
+	InfoActualizacion,
 	ItemVenta,
 	MedioPago,
 	MpPago,
@@ -135,7 +137,10 @@ const configuracionPorDefecto = (): ConfiguracionApp => ({
 	sync_intervalo_minutos: 15,
 	inactividad_minutos: 5,
 	sonidos_activos: true,
-	backup_dir: 'mock://KioscoBackups'
+	backup_dir: 'mock://KioscoBackups',
+	actualizaciones_url:
+		'https://github.com/MaxLRxd/KiosquitodoApp/releases/latest/download/latest.json',
+	actualizaciones_auto: true
 });
 
 let configuracionMock: ConfiguracionApp = configuracionPorDefecto();
@@ -153,11 +158,21 @@ export function mockGuardarConfiguracion(configuracion: ConfiguracionApp): Confi
 	if (!configuracion.backup_dir.trim()) {
 		throw new Error('La carpeta de backups no puede estar vacía');
 	}
+	const actualizacionesUrl = configuracion.actualizaciones_url.trim();
+	if (
+		actualizacionesUrl &&
+		!actualizacionesUrl.startsWith('https://') &&
+		!actualizacionesUrl.startsWith('http://')
+	) {
+		throw new Error('La URL de actualizaciones debe empezar con https:// o http://');
+	}
 	configuracionMock = {
 		sync_intervalo_minutos: configuracion.sync_intervalo_minutos,
 		inactividad_minutos: configuracion.inactividad_minutos,
 		sonidos_activos: configuracion.sonidos_activos,
-		backup_dir: configuracion.backup_dir.trim()
+		backup_dir: configuracion.backup_dir.trim(),
+		actualizaciones_url: actualizacionesUrl,
+		actualizaciones_auto: configuracion.actualizaciones_auto
 	};
 	return { ...configuracionMock };
 }
@@ -221,6 +236,27 @@ export function mockEliminarTokenMp(): void {
 /** `seleccionar_carpeta_backups()`: carpeta simulada distinta de la default. */
 export function mockSeleccionarCarpetaBackups(): string {
 	return 'mock://BackupsElegidos';
+}
+
+/** `estado_actualizacion()`: versión y endpoint del mock. */
+export function mockEstadoActualizacion(): EstadoActualizacion {
+	const endpoint = configuracionMock.actualizaciones_url.trim();
+	return {
+		version_actual: '0.1.0',
+		endpoint,
+		endpoint_configurado: endpoint !== '',
+		auto_verificar: configuracionMock.actualizaciones_auto
+	};
+}
+
+/** `buscar_actualizacion()`: el navegador siempre está "al día". */
+export function mockBuscarActualizacion(): InfoActualizacion | null {
+	return null;
+}
+
+/** `instalar_actualizacion()`: solo tiene sentido con el runtime Tauri. */
+export function mockInstalarActualizacion(): string {
+	throw new Error('Las actualizaciones solo están disponibles en la app de escritorio');
 }
 
 // El flag simula el chequeo del arranque: primero crea el backup del día y
@@ -738,6 +774,12 @@ export function ejecutarMock<T>(comando: string, args: Record<string, unknown> =
 			return Promise.resolve(undefined as T);
 		case 'seleccionar_carpeta_backups':
 			return Promise.resolve(mockSeleccionarCarpetaBackups() as T);
+		case 'estado_actualizacion':
+			return Promise.resolve(mockEstadoActualizacion() as T);
+		case 'buscar_actualizacion':
+			return Promise.resolve(mockBuscarActualizacion() as T);
+		case 'instalar_actualizacion':
+			return Promise.resolve(mockInstalarActualizacion() as T);
 		default:
 			return Promise.reject(new Error(`Comando sin implementación en el mock: ${comando}`));
 	}

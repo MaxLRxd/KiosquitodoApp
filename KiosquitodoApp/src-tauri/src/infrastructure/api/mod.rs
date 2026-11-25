@@ -10,4 +10,5 @@
 pub mod caja_cmd;
 pub mod config_cmd;
 pub mod producto_cmd;
+pub mod updater_cmd;
 pub mod venta_cmd;

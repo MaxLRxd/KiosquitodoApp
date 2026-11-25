@@ -5,6 +5,8 @@ import type {
 	CategoriaNueva,
 	CierrePersistido,
 	DevolucionRegistrada,
+	EstadoActualizacion,
+	InfoActualizacion,
 	ItemVenta,
 	NuevoProducto,
 	NuevaVenta,
@@ -200,4 +202,21 @@ export function eliminarTokenMp(): Promise<void> {
 /** Abre el diálogo nativo; devuelve la carpeta o `null` si se cancela. */
 export function seleccionarCarpetaBackups(): Promise<string | null> {
 	return ejecutar<string | null>('seleccionar_carpeta_backups', {});
+}
+
+// ── Auto-update ───────────────────────────────────────────────────────────
+
+/** Versión instalada y configuración actual del actualizador. */
+export function estadoActualizacion(): Promise<EstadoActualizacion> {
+	return ejecutar<EstadoActualizacion>('estado_actualizacion', {});
+}
+
+/** Consulta el manifiesto; `null` = ya está en la última versión. */
+export function buscarActualizacion(): Promise<InfoActualizacion | null> {
+	return ejecutar<InfoActualizacion | null>('buscar_actualizacion', {});
+}
+
+/** Descarga, verifica la firma e instala. En Windows la app se reinicia. */
+export function instalarActualizacion(): Promise<string> {
+	return ejecutar<string>('instalar_actualizacion', {});
 }

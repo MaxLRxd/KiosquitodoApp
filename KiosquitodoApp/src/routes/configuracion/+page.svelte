@@ -16,6 +16,12 @@
 		verificarBackupDiario
 	} from '$lib/api';
 	import { appState, notificar } from '$lib/stores/app.svelte';
+	import {
+		actualizaciones,
+		cargarEstadoActualizaciones,
+		instalarActualizacionDisponible,
+		verificarActualizaciones
+	} from '$lib/stores/actualizaciones.svelte';
 	import type { ConfiguracionApp, RutasApp } from '$lib/types';
 
 	const enTauri = isTauri();
@@ -34,6 +40,12 @@
 	let tieneToken = $state(false);
 	let tokenMp = $state('');
 	let guardandoToken = $state(false);
+
+	const porcentajeActualizacion = $derived(
+		actualizaciones.total && actualizaciones.total > 0
+			? Math.min(100, Math.round((actualizaciones.descargado / actualizaciones.total) * 100))
+			: null
+	);
 
 	onMount(() => {
 		void cargarDatos();
@@ -63,6 +75,8 @@
 			tieneToken = false;
 			notificar(`No se pudo consultar el keyring: ${(e as Error).message}`, 'warn');
 		}
+
+		await cargarEstadoActualizaciones();
 	}
 
 	async function guardarPreferencias(): Promise<void> {
@@ -71,7 +85,9 @@
 			sync_intervalo_minutos: Number(configuracion.sync_intervalo_minutos),
 			inactividad_minutos: Number(configuracion.inactividad_minutos),
 			sonidos_activos: configuracion.sonidos_activos,
-			backup_dir: configuracion.backup_dir
+			backup_dir: configuracion.backup_dir,
+			actualizaciones_url: configuracion.actualizaciones_url,
+			actualizaciones_auto: configuracion.actualizaciones_auto
 		};
 		if (!Number.isFinite(datos.sync_intervalo_minutos) || !Number.isFinite(datos.inactividad_minutos)) {
 			notificar('Ingresá minutos válidos', 'error');
@@ -81,6 +97,7 @@
 		try {
 			configuracion = await guardarConfiguracion(datos);
 			appState.inactividadMinutos = configuracion.inactividad_minutos;
+			await cargarEstadoActualizaciones();
 			notificar('Preferencias guardadas', 'success');
 		} catch (e) {
 			notificar((e as Error).message, 'error', true);
@@ -291,8 +308,8 @@
 
 		<p class="mt-3 text-xs leading-relaxed text-slate-500">
 			Los eventos se escriben en <span class="font-mono">kiosco_YYYY-MM-DD.log</span> dentro del
-			directorio de logs. El plugin de actualizaciones está registrado, pero todavía no hay endpoint
-			ni firma: la app no busca versiones nuevas.
+			directorio de logs. El estado y la configuración del auto-update están en la sección
+			Actualizaciones.
 		</p>
 	</section>
 
@@ -440,6 +457,117 @@
 			El bloqueo salta después de {configuracion?.inactividad_minutos ?? 5} minutos sin interacción.
 			Ajustá ese valor en Preferencias (0 = desactivado).
 		</p>
+	</section>
+
+	<section class="card card-pad mt-5">
+		<div class="flex flex-wrap items-start justify-between gap-3">
+			<div>
+				<h2 class="section-title">Actualizaciones</h2>
+				<p class="section-subtitle">
+					La app consulta un manifiesto <span class="font-mono">latest.json</span> y valida la firma
+					digital del instalador antes de aplicarlo. El endpoint se puede cambiar sin recompilar.
+				</p>
+			</div>
+			<span class="badge-info">
+				{actualizaciones.estado ? `v${actualizaciones.estado.version_actual}` : 'Cargando…'}
+			</span>
+		</div>
+
+		{#if !enTauri}
+			<div class="alert-warn mt-4">
+				Modo navegador: la verificación y la instalación reales solo funcionan en la app de
+				escritorio.
+			</div>
+		{/if}
+
+		{#if configuracion}
+			<div class="mt-4 grid gap-4 sm:grid-cols-2">
+				<label class="label sm:col-span-2">
+					URL del manifiesto de actualizaciones
+					<input
+						type="url"
+						bind:value={configuracion.actualizaciones_url}
+						placeholder="https://…/latest.json"
+						class="input font-mono text-xs"
+					/>
+					<span class="text-[11px] font-medium normal-case tracking-normal text-slate-400">
+						Vacío = auto-update deshabilitado. Por defecto apunta a GitHub Releases.
+					</span>
+				</label>
+				<label
+					class="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3 text-sm font-semibold text-slate-700 sm:col-span-2"
+				>
+					<input
+						type="checkbox"
+						bind:checked={configuracion.actualizaciones_auto}
+						class="h-4 w-4 rounded border-slate-300 accent-indigo-600"
+					/>
+					Verificar actualizaciones al iniciar
+				</label>
+			</div>
+
+			<div class="mt-5 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-4">
+				<button
+					onclick={() => void verificarActualizaciones(true)}
+					disabled={actualizaciones.buscando ||
+						actualizaciones.instalando ||
+						!actualizaciones.estado?.endpoint_configurado}
+					class="btn-secondary"
+				>
+					{actualizaciones.buscando ? 'Buscando…' : 'Buscar actualizaciones'}
+				</button>
+				{#if actualizaciones.disponible}
+					<button
+						onclick={() => void instalarActualizacionDisponible()}
+						disabled={actualizaciones.instalando}
+						class="btn-primary"
+					>
+						{actualizaciones.instalando
+							? 'Instalando…'
+							: `Instalar v${actualizaciones.disponible.version_nueva}`}
+					</button>
+				{/if}
+				{#if actualizaciones.resultado}
+					<span class="text-xs text-slate-600">{actualizaciones.resultado}</span>
+				{/if}
+			</div>
+
+			{#if actualizaciones.error}
+				<p class="alert-error mt-3" role="alert">{actualizaciones.error}</p>
+			{/if}
+
+			{#if actualizaciones.disponible && !actualizaciones.instalando}
+				<div class="alert-info mt-3">
+					Nueva versión <span class="font-semibold">{actualizaciones.disponible.version_nueva}</span>
+					disponible. Instalada: {actualizaciones.disponible.version_actual}.
+				</div>
+			{/if}
+
+			{#if actualizaciones.instalando}
+				<div class="mt-4">
+					<div class="flex items-center justify-between text-xs font-semibold text-slate-600">
+						<span>Descargando e instalando…</span>
+						<span>{porcentajeActualizacion !== null ? `${porcentajeActualizacion}%` : '…'}</span>
+					</div>
+					<div class="mt-2 h-2 overflow-hidden rounded-full bg-slate-200">
+						<div
+							class="h-full rounded-full bg-indigo-600 transition-all"
+							style="width: {porcentajeActualizacion ?? 5}%"
+						></div>
+					</div>
+				</div>
+			{/if}
+
+			<p class="mt-3 text-xs leading-relaxed text-slate-500">
+				Los releases se firman con la clave privada local (fuera del repositorio). Si el manifiesto
+				o la firma no coinciden, la actualización se rechaza y la app sigue funcionando.
+			</p>
+		{:else}
+			<div class="mt-4 flex items-center gap-2 text-sm text-slate-500">
+				<span class="h-2 w-2 animate-pulse-soft rounded-full bg-indigo-500"></span>
+				Cargando preferencias…
+			</div>
+		{/if}
 	</section>
 
 	<section class="card card-pad mt-5">

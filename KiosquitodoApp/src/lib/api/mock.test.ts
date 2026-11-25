@@ -18,7 +18,7 @@ import {
 	tiendaMock,
 	validarBarcode
 } from './mock';
-import type { NuevoProducto, NuevaVenta } from '$lib/types';
+import type { ConfiguracionApp, NuevoProducto, NuevaVenta } from '$lib/types';
 
 beforeEach(() => {
 	reiniciarTiendaMock();
@@ -391,5 +391,44 @@ describe('mock: sistema (rutas y backup)', () => {
 	it('crear_backup_manual devuelve una ruta simulada con fecha', async () => {
 		const ruta = await ejecutarMock<string>('crear_backup_manual');
 		expect(ruta).toMatch(/^mock:\/\/KioscoBackups\/kiosco_\d{14}\.db$/);
+	});
+});
+
+describe('mock: preferencias', () => {
+	it('obtener_configuracion devuelve los defaults', async () => {
+		const configuracion = await ejecutarMock<ConfiguracionApp>('obtener_configuracion');
+		expect(configuracion).toEqual({
+			sync_intervalo_minutos: 15,
+			inactividad_minutos: 5,
+			sonidos_activos: true,
+			backup_dir: 'mock://KioscoBackups'
+		});
+	});
+
+	it('guardar_configuracion persiste y se puede reler', async () => {
+		const cambios: ConfiguracionApp = {
+			sync_intervalo_minutos: 30,
+			inactividad_minutos: 0,
+			sonidos_activos: false,
+			backup_dir: 'mock://OtraCarpeta'
+		};
+		const guardada = await ejecutarMock<ConfiguracionApp>('guardar_configuracion', {
+			configuracion: cambios
+		});
+		expect(guardada).toEqual(cambios);
+		expect(await ejecutarMock<ConfiguracionApp>('obtener_configuracion')).toEqual(cambios);
+	});
+
+	it('guardar_configuracion rechaza intervalo de sync cero', () => {
+		expect(() =>
+			ejecutarMock('guardar_configuracion', {
+				configuracion: {
+					sync_intervalo_minutos: 0,
+					inactividad_minutos: 5,
+					sonidos_activos: true,
+					backup_dir: 'mock://KioscoBackups'
+				}
+			})
+		).toThrow(/al menos 1 minuto/);
 	});
 });

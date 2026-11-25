@@ -1,8 +1,10 @@
-﻿//! Commands Tauri del módulo de configuración del sistema: rutas, autostart
-//! y backups. La integración con Mercado Pago (token, keyring y sync) queda
+﻿//! Commands Tauri del módulo de configuración del sistema: rutas, preferencias,
+//! autostart y backups. La integración con Mercado Pago (token, keyring y sync) queda
 //! DIFERIDA por decisión del equipo (P16 sin MP).
 
+use crate::application::config_service::{ConfigService, ConfiguracionApp};
 use crate::config::AppConfig;
+use crate::infrastructure::db::repos::ConfigSqlite;
 use crate::infrastructure::db::DbConn;
 use crate::infrastructure::system::{autostart, backup};
 use serde::Serialize;
@@ -34,6 +36,41 @@ impl From<AppConfig> for RutasApp {
 pub fn obtener_rutas() -> Result<RutasApp, String> {
     let cfg = AppConfig::resolver().map_err(|e| e.to_string())?;
     Ok(cfg.into())
+}
+
+/// Arma el servicio de configuración con la carpeta de backups por defecto.
+fn servicio_config(db: &DbConn) -> Result<ConfigService<ConfigSqlite>, String> {
+    let cfg = AppConfig::resolver().map_err(|e| e.to_string())?;
+    Ok(ConfigService::new(
+        ConfigSqlite::new(db.clone()),
+        cfg.backup_dir.to_string_lossy().into_owned(),
+    ))
+}
+
+/// Lee las preferencias persistidas, con defaults para las claves ausentes.
+#[tauri::command]
+pub fn obtener_configuracion(db: State<'_, DbConn>) -> Result<ConfiguracionApp, String> {
+    servicio_config(db.inner())?
+        .obtener()
+        .map_err(|e| e.to_string())
+}
+
+/// Guarda las preferencias y devuelve el estado ya normalizado.
+#[tauri::command]
+pub fn guardar_configuracion(
+    db: State<'_, DbConn>,
+    configuracion: ConfiguracionApp,
+) -> Result<ConfiguracionApp, String> {
+    let guardada = servicio_config(db.inner())?
+        .guardar(&configuracion)
+        .map_err(|e| e.to_string())?;
+    log::info!(
+        "Configuración guardada: sync {} min, inactividad {} min, sonidos {}",
+        guardada.sync_intervalo_minutos,
+        guardada.inactividad_minutos,
+        guardada.sonidos_activos
+    );
+    Ok(guardada)
 }
 
 /// ¿Está habilitado el arranque automático al iniciar sesión?

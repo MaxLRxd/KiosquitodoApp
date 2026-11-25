@@ -1,6 +1,7 @@
 import { invoke, isTauri } from '@tauri-apps/api/core';
 import type {
 	Categoria,
+	ConfiguracionApp,
 	CategoriaNueva,
 	CierrePersistido,
 	DevolucionRegistrada,
@@ -142,4 +143,16 @@ export function obtenerRutas(): Promise<RutasApp> {
 /** Crea un backup manual (VACUUM INTO) y devuelve la ruta generada. */
 export function crearBackupManual(): Promise<string> {
 	return ejecutar<string>('crear_backup_manual', {});
+}
+
+/** Lee las preferencias guardadas (defaults para claves ausentes). */
+export function obtenerConfiguracion(): Promise<ConfiguracionApp> {
+	return ejecutar<ConfiguracionApp>('obtener_configuracion', {});
+}
+
+/** Persiste las preferencias y devuelve el estado normalizado. */
+export function guardarConfiguracion(
+	configuracion: ConfiguracionApp
+): Promise<ConfiguracionApp> {
+	return ejecutar<ConfiguracionApp>('guardar_configuracion', { configuracion });
 }

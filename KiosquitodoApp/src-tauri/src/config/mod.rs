@@ -16,6 +16,12 @@ pub mod defaults {
     /// Intervalo de sync automático con MP en minutos.
     pub const SYNC_INTERVALO_MINUTOS: u64 = 15;
 
+    /// Minutos sin interacción antes del bloqueo por PIN (0 = desactivado).
+    pub const INACTIVIDAD_MINUTOS_DEFAULT: u64 = 5;
+
+    /// Feedback sonoro activo por defecto.
+    pub const SONIDOS_ACTIVOS_DEFAULT: bool = true;
+
     /// Stock mínimo por defecto para nuevos productos.
     pub const STOCK_MINIMO_DEFAULT: i64 = 5;
 
@@ -109,6 +115,9 @@ mod tests {
         assert_eq!(defaults::MATCHING_VENTANA_SEGUNDOS, 600);
         // El sync cada 15 minutos
         assert_eq!(defaults::SYNC_INTERVALO_MINUTOS, 15);
+        // Bloqueo por inactividad a los 5 minutos, con sonidos activos
+        assert_eq!(defaults::INACTIVIDAD_MINUTOS_DEFAULT, 5);
+        assert!(defaults::SONIDOS_ACTIVOS_DEFAULT);
     }
 
     #[test]

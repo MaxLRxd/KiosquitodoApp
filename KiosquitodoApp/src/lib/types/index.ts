@@ -93,6 +93,14 @@ export interface RutasApp {
 	db_path: string;
 }
 
+/** Preferencias persistidas (espejo de `ConfiguracionApp` en Rust). */
+export interface ConfiguracionApp {
+	sync_intervalo_minutos: number;
+	inactividad_minutos: number; // 0 = desactivado
+	sonidos_activos: boolean;
+	backup_dir: string;
+}
+
 export interface MpPago {
 	id: number;
 	mp_id: string;

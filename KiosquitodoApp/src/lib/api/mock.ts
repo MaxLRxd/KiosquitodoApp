@@ -1,6 +1,7 @@
 import type {
 	Categoria,
 	CategoriaNueva,
+	ConfiguracionApp,
 	CierrePersistido,
 	DevolucionRegistrada,
 	ItemVenta,
@@ -130,6 +131,37 @@ export function crearTienda(): TiendaMock {
 	};
 }
 
+const configuracionPorDefecto = (): ConfiguracionApp => ({
+	sync_intervalo_minutos: 15,
+	inactividad_minutos: 5,
+	sonidos_activos: true,
+	backup_dir: 'mock://KioscoBackups'
+});
+
+let configuracionMock: ConfiguracionApp = configuracionPorDefecto();
+
+/** `obtener_configuracion()`: copia para que el caller no mute el estado mock. */
+export function mockObtenerConfiguracion(): ConfiguracionApp {
+	return { ...configuracionMock };
+}
+
+/** `guardar_configuracion()`: valida y reemplaza las preferencias del mock. */
+export function mockGuardarConfiguracion(configuracion: ConfiguracionApp): ConfiguracionApp {
+	if (configuracion.sync_intervalo_minutos < 1) {
+		throw new Error('El intervalo de sync debe ser al menos 1 minuto');
+	}
+	if (!configuracion.backup_dir.trim()) {
+		throw new Error('La carpeta de backups no puede estar vacía');
+	}
+	configuracionMock = {
+		sync_intervalo_minutos: configuracion.sync_intervalo_minutos,
+		inactividad_minutos: configuracion.inactividad_minutos,
+		sonidos_activos: configuracion.sonidos_activos,
+		backup_dir: configuracion.backup_dir.trim()
+	};
+	return { ...configuracionMock };
+}
+
 export const tiendaMock: TiendaMock = crearTienda();
 
 export function reiniciarTiendaMock(): void {
@@ -145,6 +177,7 @@ export function reiniciarTiendaMock(): void {
 	tiendaMock.proximoIdVenta = fresca.proximoIdVenta;
 	tiendaMock.proximoIdCierre = fresca.proximoIdCierre;
 	tiendaMock.proximoIdDevolucion = fresca.proximoIdDevolucion;
+	configuracionMock = configuracionPorDefecto();
 }
 
 /** `SELECT * FROM productos WHERE barcode = ?1 AND activo = 1`. */
@@ -603,6 +636,12 @@ export function ejecutarMock<T>(comando: string, args: Record<string, unknown> =
 			return Promise.resolve(mockObtenerRutas() as T);
 		case 'crear_backup_manual':
 			return Promise.resolve(mockCrearBackupManual() as T);
+		case 'obtener_configuracion':
+			return Promise.resolve(mockObtenerConfiguracion() as T);
+		case 'guardar_configuracion':
+			return Promise.resolve(
+				mockGuardarConfiguracion(args.configuracion as ConfiguracionApp) as T
+			);
 		default:
 			return Promise.reject(new Error(`Comando sin implementación en el mock: ${comando}`));
 	}

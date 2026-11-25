@@ -54,6 +54,8 @@ pub fn run() {
             caja_cmd::listar_cierres,
             caja_cmd::exportar_cierres_csv,
             config_cmd::obtener_rutas,
+            config_cmd::obtener_configuracion,
+            config_cmd::guardar_configuracion,
             config_cmd::autostart_estado,
             config_cmd::habilitar_autostart,
             config_cmd::deshabilitar_autostart,

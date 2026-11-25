@@ -122,23 +122,29 @@ fn flujo_completo_en_bd_real() {
     assert_eq!(devoluciones[0].motivo.as_deref(), Some("cliente se arrepintió"));
 
     // ── Cierre de caja ────────────────────────────────────────────────
+    // `venta.hora` se guarda en UTC; el día operativo es el local.
+    let fecha = chrono::DateTime::parse_from_rfc3339(&venta.hora)
+        .expect("hora UTC")
+        .with_timezone(&chrono::Local)
+        .format("%Y-%m-%d")
+        .to_string();
     let c_svc = CierreService::new(CierreSqlite::new(db.clone()));
     let resumen = c_svc
-        .resumen_diario(&venta.hora[..10])
+        .resumen_diario(&fecha)
         .expect("resumen diario");
     assert_eq!(resumen.cantidad_ventas, 1);
     assert_eq!(resumen.total_ventas, 8500);
     assert_eq!(resumen.total_efectivo, 8500);
 
     let cierre = c_svc
-        .cerrar_caja(&venta.hora[..10])
+        .cerrar_caja(&fecha)
         .expect("cerrar caja");
     assert!(cierre.id > 0);
     assert_eq!(c_svc.listar_cierres().unwrap().len(), 1);
 
     // ── CSV ───────────────────────────────────────────────────────────
     let csv = c_svc
-        .exportar_csv(&venta.hora[..10], &venta.hora[..10])
+        .exportar_csv(&fecha, &fecha)
         .expect("exportar csv");
     assert!(csv.contains("cantidad_ventas"));
     assert!(csv.contains("1"));

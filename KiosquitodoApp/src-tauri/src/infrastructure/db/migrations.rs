@@ -1,184 +1,93 @@
 //! Migraciones del esquema versionado.
 //!
-//! Cada migración es un par `(version, SQL)`. Se aplican en orden ascendente
-//! y se registran en la tabla `schema_version`. Una BD recién creada ejecuta
-//! todas; una existente solo las pendientes.
+//! Cada migración vive en su propio archivo `.sql`, versionado en git.
+//! La 1 es el esquema completo (`001_schema.sql`); las siguientes son
+//! incrementales. Se aplican en orden ascendente, una transacción por
+//! migración (DDL + registro de versión atómicos), y se registran en
+//! `schema_version`. Una BD recién creada ejecuta todas; una existente solo
+//! las pendientes.
 
 use rusqlite::Connection;
+use std::path::Path;
 
-/// Lista ordenada de migraciones. La versión es el número de migración.
-/// **No reordenar ni reescribir migraciones ya publicadas**: agregar una nueva
-/// al final.
+#[derive(Debug, thiserror::Error)]
+pub enum MigrationError {
+    #[error("error de base de datos: {0}")]
+    Db(#[from] rusqlite::Error),
+    #[error("migración {version} falló: {source}")]
+    Failed { version: i32, source: rusqlite::Error },
+    #[error("no se pudo crear el backup previo: {0}")]
+    Backup(rusqlite::Error),
+}
+
+impl From<MigrationError> for crate::errors::AppError {
+    fn from(e: MigrationError) -> Self {
+        crate::errors::AppError::Migracion(e.to_string())
+    }
+}
+
+/// Lista ordenada de migraciones. **No reordenar ni reescribir migraciones ya
+/// publicadas**: agregar una nueva al final.
 const MIGRATIONS: &[(i32, &str)] = &[
-    (
-        1,
-        r#"
-        CREATE TABLE IF NOT EXISTS productos (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
-            nombre      TEXT NOT NULL,
-            barcode     TEXT UNIQUE,
-            precio_venta  INTEGER NOT NULL,  -- centavos
-            precio_costo  INTEGER,           -- centavos
-            stock         INTEGER NOT NULL DEFAULT 0,
-            stock_minimo  INTEGER NOT NULL DEFAULT 5,
-            activo        INTEGER NOT NULL DEFAULT 1,
-            creado_en     TEXT DEFAULT (datetime('now', 'localtime')),
-            actualizado_en TEXT
-        );
-        CREATE INDEX IF NOT EXISTS idx_productos_barcode ON productos(barcode);
-        CREATE INDEX IF NOT EXISTS idx_productos_nombre  ON productos(nombre);
-        "#,
-    ),
-    (
-        2,
-        r#"
-        CREATE TABLE IF NOT EXISTS ventas (
-            id            INTEGER PRIMARY KEY AUTOINCREMENT,
-            total         INTEGER NOT NULL,  -- centavos
-            medio_pago    TEXT NOT NULL CHECK(medio_pago IN ('efectivo', 'mercado_pago', 'mixto')),
-            monto_efectivo   INTEGER DEFAULT 0,  -- centavos
-            monto_mp         INTEGER DEFAULT 0,  -- centavos
-            descripcion_mp   TEXT,
-            hora          TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
-            cerrada       INTEGER NOT NULL DEFAULT 0
-        );
-        "#,
-    ),
-    (
-        3,
-        r#"
-        CREATE TABLE IF NOT EXISTS venta_items (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
-            venta_id    INTEGER NOT NULL REFERENCES ventas(id),
-            producto_id INTEGER NOT NULL REFERENCES productos(id),
-            cantidad    INTEGER NOT NULL,
-            precio_unitario INTEGER NOT NULL  -- centavos
-        );
-        CREATE INDEX IF NOT EXISTS idx_venta_items_venta ON venta_items(venta_id);
-        "#,
-    ),
-    (
-        4,
-        r#"
-        CREATE TABLE IF NOT EXISTS mp_pagos (
-            id               INTEGER PRIMARY KEY AUTOINCREMENT,
-            mp_id            TEXT UNIQUE NOT NULL,
-            fecha_aprobacion TEXT,
-            monto            INTEGER NOT NULL,  -- centavos
-            descripcion      TEXT,
-            venta_id         INTEGER REFERENCES ventas(id),
-            importado_en     TEXT DEFAULT (datetime('now', 'localtime'))
-        );
-        CREATE INDEX IF NOT EXISTS idx_mp_pagos_fecha ON mp_pagos(fecha_aprobacion);
-        CREATE INDEX IF NOT EXISTS idx_mp_pagos_monto ON mp_pagos(monto);
-        "#,
-    ),
-    (
-        5,
-        r#"
-        CREATE TABLE IF NOT EXISTS configuracion (
-            clave TEXT PRIMARY KEY,
-            valor TEXT
-        );
-        "#,
-    ),
-    (
-        6,
-        r#"
-        CREATE TABLE IF NOT EXISTS cierres_caja (
-            id               INTEGER PRIMARY KEY AUTOINCREMENT,
-            fecha            TEXT NOT NULL,
-            total_efectivo   INTEGER DEFAULT 0,  -- centavos
-            total_mp         INTEGER DEFAULT 0,  -- centavos
-            total_ventas     INTEGER DEFAULT 0,
-            cantidad_ventas  INTEGER DEFAULT 0,
-            margen_bruto     INTEGER DEFAULT 0,  -- centavos
-            delta_mp         INTEGER DEFAULT 0,  -- centavos
-            creado_en        TEXT DEFAULT (datetime('now', 'localtime'))
-        );
-        "#,
-    ),
-    (
-        7,
-        r#"
-        CREATE TABLE IF NOT EXISTS categorias (
-            id      INTEGER PRIMARY KEY AUTOINCREMENT,
-            nombre  TEXT NOT NULL UNIQUE,
-            color   TEXT   -- opcional: código hex para identificación visual
-        );
-        "#,
-    ),
-    (
-        8,
-        r#"
-        ALTER TABLE productos ADD COLUMN categoria_id INTEGER REFERENCES categorias(id);
-        CREATE INDEX IF NOT EXISTS idx_productos_categoria ON productos(categoria_id);
-        "#,
-    ),
-    (
-        9,
-        r#"
-        CREATE TABLE IF NOT EXISTS devoluciones (
-            id       INTEGER PRIMARY KEY AUTOINCREMENT,
-            venta_id INTEGER NOT NULL REFERENCES ventas(id),
-            fecha    TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
-            motivo   TEXT,
-            creado_en TEXT DEFAULT (datetime('now', 'localtime'))
-        );
-        CREATE TABLE IF NOT EXISTS devolucion_items (
-            id              INTEGER PRIMARY KEY AUTOINCREMENT,
-            devolucion_id   INTEGER NOT NULL REFERENCES devoluciones(id),
-            producto_id     INTEGER NOT NULL REFERENCES productos(id),
-            cantidad        INTEGER NOT NULL,
-            monto_devuelto  INTEGER NOT NULL  -- centavos
-        );
-        "#,
-    ),
-    (
-        10,
-        r#"
-        CREATE TABLE IF NOT EXISTS movimientos_stock (
-            id           INTEGER PRIMARY KEY AUTOINCREMENT,
-            producto_id  INTEGER NOT NULL REFERENCES productos(id),
-            stock_anterior INTEGER NOT NULL,
-            stock_nuevo  INTEGER NOT NULL,
-            motivo       TEXT NOT NULL CHECK(motivo IN ('recuento_fisico', 'rotura', 'vencimiento', 'error_carga', 'otro', 'venta', 'devolucion')),
-            operador     TEXT,
-            creado_en    TEXT DEFAULT (datetime('now', 'localtime'))
-        );
-        CREATE INDEX IF NOT EXISTS idx_movimientos_producto ON movimientos_stock(producto_id);
-        "#,
-    ),
+    (1, include_str!("migrations/001_schema.sql")),
 ];
 
-/// Aplica las migraciones pendientes sobre la conexión. Idempotente.
-pub fn ejecutar_migraciones(conn: &Connection) -> Result<(), rusqlite::Error> {
+/// Aplica las migraciones pendientes. Idempotente.
+///
+/// Debe llamarse con una conexión que ya tenga `PRAGMA foreign_keys=ON`.
+/// `db_path` se usa para dejar un backup consistente (VACUUM INTO) antes de
+/// aplicar cambios sobre una base que ya tenía datos.
+pub fn ejecutar_migraciones(conn: &mut Connection, db_path: &Path) -> Result<(), MigrationError> {
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS schema_version (
-            version    INTEGER PRIMARY KEY,
-            aplicado_en TEXT DEFAULT (datetime('now', 'localtime'))
-        );",
+            version     INTEGER PRIMARY KEY,
+            aplicado_en TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+        ) STRICT;",
     )?;
 
-    // La migración 8 altera productos con una columna que en la 1 ya no existe.
-    // Se guarda el max version antes de aplicar para decidir correctamente.
-    let version_actual: i32 = conn.query_row(
-        "SELECT COALESCE(MAX(version), 0) FROM schema_version",
-        [],
-        |row| row.get(0),
-    )?;
+    // Sin unwrap_or: si falla la lectura, el error sube.
+    let version_actual: i32 =
+        conn.query_row("SELECT COALESCE(MAX(version), 0) FROM schema_version", [], |r| r.get(0))?;
 
-    for (version, sql) in MIGRATIONS {
-        if *version > version_actual {
-            conn.execute_batch(sql)?;
-            conn.execute(
-                "INSERT INTO schema_version (version) VALUES (?1)",
-                [*version],
-            )?;
-        }
+    let pendientes: Vec<_> = MIGRATIONS.iter().filter(|(v, _)| *v > version_actual).collect();
+    if pendientes.is_empty() {
+        return Ok(());
+    }
+
+    // Backup consistente antes de tocar nada (solo si ya había datos).
+    if version_actual > 0 {
+        let backup = db_path.with_extension(format!("pre-v{}.bak", version_actual));
+        let _ = std::fs::remove_file(&backup);
+        conn.execute("VACUUM INTO ?1", [backup.to_string_lossy().as_ref()])
+            .map_err(MigrationError::Backup)?;
+    }
+
+    for (version, sql) in pendientes {
+        // Una transacción por migración: DDL + registro de versión son atómicos.
+        let tx = conn.transaction()?;
+        tx.execute_batch(sql)
+            .map_err(|source| MigrationError::Failed { version: *version, source })?;
+        tx.execute("INSERT INTO schema_version (version) VALUES (?1)", [*version])?;
+        tx.commit()?;
     }
     Ok(())
 }
+
+/// Aplicar al abrir CADA conexión.
+pub fn configurar_conexion(conn: &Connection) -> Result<(), rusqlite::Error> {
+    conn.execute_batch("PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL;")
+}
+
+/// Backup diario compacto y consistente, sin bloquear la app.
+/// Reemplaza al VACUUM + auto_vacuum del cierre de caja.
+pub fn backup_diario(conn: &Connection, destino: &Path) -> Result<(), rusqlite::Error> {
+    let _ = std::fs::remove_file(destino); // VACUUM INTO falla si el archivo existe
+    conn.execute("VACUUM INTO ?1", [destino.to_string_lossy().as_ref()])?;
+    Ok(())
+}
+
+// En el caso de uso `close_cash`, llamar a backup_diario a través de un port
+// (p. ej. trait BackupPort) en lugar de un #[tauri::command] que toque la Connection.
 
 // ── Tests ────────────────────────────────────────────────────────────
 
@@ -198,31 +107,29 @@ mod tests {
                  ORDER BY name",
             )
             .unwrap();
-        let names = stmt
-            .query_map([], |row| row.get::<_, String>(0))
+        stmt.query_map([], |row| row.get::<_, String>(0))
             .unwrap()
             .collect::<Result<Vec<_>, _>>()
-            .unwrap();
-        names
+            .unwrap()
     }
 
     #[test]
     fn migrar_bd_vacia_crea_esquema_completo() {
-        let conn = bd_en_memoria();
-        ejecutar_migraciones(&conn).unwrap();
+        let mut conn = bd_en_memoria();
+        ejecutar_migraciones(&mut conn, Path::new(":memory:")).unwrap();
 
         let tablas_totales = tablas(&conn);
         for esperada in [
             "schema_version",
+            "categorias",
             "productos",
+            "cierres_caja",
             "ventas",
             "venta_items",
-            "mp_pagos",
-            "configuracion",
-            "cierres_caja",
-            "categorias",
             "devoluciones",
             "devolucion_items",
+            "mp_pagos",
+            "configuracion",
             "movimientos_stock",
         ] {
             assert!(
@@ -230,55 +137,31 @@ mod tests {
                 "Falta la tabla {esperada}"
             );
         }
+
+        let version: i32 = conn
+            .query_row("SELECT MAX(version) FROM schema_version", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(version, 1);
     }
 
     #[test]
     fn migraciones_son_idempotentes() {
-        let conn = bd_en_memoria();
-        ejecutar_migraciones(&conn).unwrap();
-        ejecutar_migraciones(&conn).unwrap();
+        let mut conn = bd_en_memoria();
+        ejecutar_migraciones(&mut conn, Path::new(":memory:")).unwrap();
+        ejecutar_migraciones(&mut conn, Path::new(":memory:")).unwrap();
 
-        let version: i32 = conn
-            .query_row("SELECT MAX(version) FROM schema_version", [], |r| r.get(0))
+        let filas: i64 = conn
+            .query_row("SELECT COUNT(*) FROM schema_version", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 10);
+        assert_eq!(filas, 1, "no debe volver a registrar la migración 1");
     }
 
     #[test]
-    fn bd_reciente_solo_aplica_pendientes() {
-        let conn = bd_en_memoria();
-        // BD al día (versión 10)
-        ejecutar_migraciones(&conn).unwrap();
+    fn esquema_aplica_restricciones() {
+        let mut conn = bd_en_memoria();
+        ejecutar_migraciones(&mut conn, Path::new(":memory:")).unwrap();
 
-        // Simular un backup que se quedó en la versión 8: faltan las tablas
-        // creadas por las migraciones 9 y 10 y sus registros de versión.
-        conn.execute_batch(
-            "DELETE FROM schema_version WHERE version IN (9, 10); \
-             DROP TABLE movimientos_stock; \
-             DROP TABLE devolucion_items; \
-             DROP TABLE devoluciones;",
-        )
-        .unwrap();
-
-        ejecutar_migraciones(&conn).unwrap();
-
-        let version: i32 = conn
-            .query_row("SELECT MAX(version) FROM schema_version", [], |r| r.get(0))
-            .unwrap();
-        assert_eq!(version, 10);
-
-        // Las tablas de las migraciones pendientes fueron reconstruidas
-        assert!(tablas(&conn).contains(&"devoluciones".to_string()));
-        assert!(tablas(&conn).contains(&"devolucion_items".to_string()));
-        assert!(tablas(&conn).contains(&"movimientos_stock".to_string()));
-    }
-
-    #[test]
-    fn productos_tiene_categoria_y_restricciones() {
-        let conn = bd_en_memoria();
-        ejecutar_migraciones(&conn).unwrap();
-
-        // tipo de medio_pago con CHECK
+        // medio_pago desconocido viola el CHECK
         let res = conn.execute(
             "INSERT INTO ventas (total, medio_pago, monto_efectivo, monto_mp) \
              VALUES (100, 'tarjeta', 100, 0)",
@@ -286,11 +169,24 @@ mod tests {
         );
         assert!(res.is_err(), "medio_pago desconocido debe violar el CHECK");
 
-        // categoria_id es columna válida de productos
+        // total debe cuadrar con los montos parciales
+        let res = conn.execute(
+            "INSERT INTO ventas (total, medio_pago, monto_efectivo, monto_mp) \
+             VALUES (100, 'efectivo', 80, 0)",
+            [],
+        );
+        assert!(res.is_err(), "total incoherente debe violar el CHECK");
+
+        // Fechas por defecto en UTC ISO 8601 con 'Z'
         conn.execute(
-            "INSERT INTO productos (nombre, precio_venta, stock) VALUES ('Prueba', 100, 5)",
+            "INSERT INTO ventas (total, medio_pago, monto_efectivo, monto_mp) \
+             VALUES (100, 'efectivo', 100, 0)",
             [],
         )
         .unwrap();
+        let hora: String = conn
+            .query_row("SELECT hora FROM ventas", [], |r| r.get(0))
+            .unwrap();
+        assert!(hora.ends_with('Z'), "hora debe guardarse en UTC (sufijo Z): {hora}");
     }
 }

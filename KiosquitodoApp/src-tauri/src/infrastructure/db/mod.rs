@@ -8,6 +8,8 @@ use std::sync::{Arc, Mutex};
 
 use rusqlite::Connection;
 
+use crate::errors::AppResult;
+
 /// Handle compartido de la conexión a SQLite.
 ///
 /// `Arc` permite pasarlo a los repositorios y comandos sin clonar la conexión.
@@ -33,20 +35,22 @@ impl DbConn {
 
     /// Abre (o crea) la base de datos en `path`, aplica PRAGMAs y migraciones.
     /// Requiere que el directorio padre exista.
-    pub fn abrir(path: &Path) -> Result<Self, rusqlite::Error> {
-        let conn = Connection::open(path)?;
+    pub fn abrir(path: &Path) -> AppResult<Self> {
+        let mut conn = Connection::open(path)?;
         Self::aplicar_pragmas(&conn)?;
-        migrations::ejecutar_migraciones(&conn)?;
+        migrations::ejecutar_migraciones(&mut conn, path)?;
         Ok(Self {
             conn: Arc::new(Mutex::new(conn)),
         })
     }
 
     /// Abre una base en memoria (tests). No requiere archivo.
-    pub fn abrir_en_memoria() -> Result<Self, rusqlite::Error> {
-        let conn = Connection::open_in_memory()?;
+    pub fn abrir_en_memoria() -> AppResult<Self> {
+        let mut conn = Connection::open_in_memory()?;
         Self::aplicar_pragmas(&conn)?;
-        migrations::ejecutar_migraciones(&conn)?;
+        // En memoria nunca hay datos previos (versión 0), así que el runner no
+        // intenta backup: la ruta es solo para satisfacer la firma.
+        migrations::ejecutar_migraciones(&mut conn, Path::new(":memory:"))?;
         Ok(Self {
             conn: Arc::new(Mutex::new(conn)),
         })
@@ -81,7 +85,7 @@ mod tests {
         let version: i32 = conn
             .query_row("SELECT MAX(version) FROM schema_version", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 10);
+        assert_eq!(version, 1);
     }
 
     #[test]
@@ -95,7 +99,7 @@ mod tests {
             let wal: String = conn
                 .query_row("PRAGMA journal_mode", [], |r| r.get(0))
                 .unwrap();
-            Ok::<_, rusqlite::Error>(wal)
+            Ok::<_, crate::errors::AppError>(wal)
         })();
 
         let _ = std::fs::remove_file(&path);

@@ -80,9 +80,10 @@ impl VentaSqlite {
 
             // Registrar el movimiento de stock de tipo 'venta'
             tx.execute(
-                "INSERT INTO movimientos_stock (producto_id, stock_anterior, stock_nuevo, motivo) \
-                 VALUES (?1, ?2, ?3, 'venta')",
-                params![item.producto_id, stock, stock - item.cantidad],
+                "INSERT INTO movimientos_stock \
+                 (producto_id, tipo, delta, stock_anterior, stock_nuevo) \
+                 VALUES (?1, 'venta', ?2, ?3, ?4)",
+                params![item.producto_id, -item.cantidad, stock, stock - item.cantidad],
             )?;
         }
         Ok(())
@@ -160,7 +161,7 @@ impl VentaRepo for VentaSqlite {
                     i.producto_id, i.cantidad, i.precio_unitario \
              FROM ventas v \
              LEFT JOIN venta_items i ON i.venta_id = v.id \
-             WHERE date(v.hora) = ?1 \
+             WHERE date(v.hora, 'localtime') = ?1 \
              ORDER BY v.hora DESC, v.id DESC, i.id ASC",
         )?;
 
@@ -209,30 +210,62 @@ impl VentaRepo for VentaSqlite {
         let conn = self.db.conn.lock().expect("lock");
         let tx = conn.unchecked_transaction()?;
 
+        // El reintegro espeja el medio de pago de la venta original: si fue
+        // en efectivo (o mixto), se devuelve efectivo; si fue solo MP, MP.
+        let medio_pago: String = tx.query_row(
+            "SELECT medio_pago FROM ventas WHERE id = ?1",
+            params![venta_id],
+            |r| r.get(0),
+        )?;
+        let medio_reintegro = if medio_pago == "mercado_pago" {
+            "mercado_pago"
+        } else {
+            "efectivo"
+        };
+
         // Insertar cabecera de devolución
         tx.execute(
-            "INSERT INTO devoluciones (venta_id, motivo) VALUES (?1, ?2)",
-            params![venta_id, motivo],
+            "INSERT INTO devoluciones (venta_id, medio_reintegro, motivo) \
+             VALUES (?1, ?2, ?3)",
+            params![venta_id, medio_reintegro, motivo],
         )?;
         let devolucion_id = tx.last_insert_rowid();
 
         // Insertar ítems y devolver stock
         {
             let mut dev_items = tx.prepare(
-                "INSERT INTO devolucion_items (devolucion_id, producto_id, cantidad, monto_devuelto) \
+                "INSERT INTO devolucion_items \
+                 (devolucion_id, venta_item_id, cantidad, monto_devuelto) \
                  VALUES (?1, ?2, ?3, ?4)",
             )?;
             let mut upd = tx.prepare(
                 "UPDATE productos SET stock = stock + ?1 WHERE id = ?2",
             )?;
             let mut mov = tx.prepare(
-                "INSERT INTO movimientos_stock (producto_id, stock_anterior, stock_nuevo, motivo) \
-                 VALUES (?1, ?2, ?3, 'devolucion')",
+                "INSERT INTO movimientos_stock \
+                 (producto_id, tipo, delta, stock_anterior, stock_nuevo, devolucion_id) \
+                 VALUES (?1, 'devolucion', ?2, ?3, ?4, ?5)",
             )?;
 
             for item in items {
+                // La devolución referencia la línea de venta original.
+                let venta_item_id: i64 = tx
+                    .query_row(
+                        "SELECT id FROM venta_items \
+                         WHERE venta_id = ?1 AND producto_id = ?2 ORDER BY id LIMIT 1",
+                        params![venta_id, item.producto_id],
+                        |r| r.get(0),
+                    )
+                    .optional()?
+                    .ok_or_else(|| {
+                        AppError::from(format!(
+                            "El producto {} no pertenece a la venta {venta_id}",
+                            item.producto_id
+                        ))
+                    })?;
+
                 let monto = item.cantidad.saturating_mul(item.precio_unitario);
-                dev_items.execute(params![devolucion_id, item.producto_id, item.cantidad, monto])?;
+                dev_items.execute(params![devolucion_id, venta_item_id, item.cantidad, monto])?;
 
                 let stock_actual: i64 = tx
                     .query_row(
@@ -243,9 +276,13 @@ impl VentaRepo for VentaSqlite {
                     .optional()?
                     .unwrap_or(0);
                 upd.execute(params![item.cantidad, item.producto_id])?;
-                mov.execute(
-                    params![item.producto_id, stock_actual, stock_actual + item.cantidad],
-                )?;
+                mov.execute(params![
+                    item.producto_id,
+                    item.cantidad,
+                    stock_actual,
+                    stock_actual + item.cantidad,
+                    devolucion_id,
+                ])?;
             }
         }
 
@@ -256,8 +293,8 @@ impl VentaRepo for VentaSqlite {
     fn listar_devoluciones(&self) -> AppResult<Vec<DevolucionRegistrada>> {
         let conn = self.db.conn.lock().expect("lock");
         let mut stmt = conn.prepare(
-            "SELECT id, venta_id, fecha, motivo FROM devoluciones \
-             ORDER BY fecha DESC, id DESC",
+            "SELECT id, venta_id, creado_en, motivo FROM devoluciones \
+             ORDER BY creado_en DESC, id DESC",
         )?;
         let cabeceras = stmt
             .query_map([], |row| {
@@ -279,8 +316,10 @@ impl VentaRepo for VentaSqlite {
             let ids = d.id;
             let conn = self.db.conn.lock().expect("lock");
             let mut items_stmt = conn.prepare(
-                "SELECT producto_id, cantidad, monto_devuelto \
-                 FROM devolucion_items WHERE devolucion_id = ?1 ORDER BY id",
+                "SELECT vi.producto_id, di.cantidad, di.monto_devuelto \
+                 FROM devolucion_items di \
+                 JOIN venta_items vi ON vi.id = di.venta_item_id \
+                 WHERE di.devolucion_id = ?1 ORDER BY di.id",
             )?;
             d.items = items_stmt
                 .query_map(params![ids], |row| {
@@ -459,13 +498,13 @@ mod tests {
             .unwrap();
 
         let conn = ventas.db.conn.lock().unwrap();
-        let motivo: String = conn
+        let tipo: String = conn
             .query_row(
-                "SELECT motivo FROM movimientos_stock WHERE producto_id = ?1 ORDER BY id DESC",
+                "SELECT tipo FROM movimientos_stock WHERE producto_id = ?1 ORDER BY id DESC",
                 params![p1.id],
                 |r| r.get(0),
             )
             .unwrap();
-        assert_eq!(motivo, "devolucion");
+        assert_eq!(tipo, "devolucion");
     }
 }

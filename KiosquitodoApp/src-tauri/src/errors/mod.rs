@@ -21,6 +21,8 @@ pub enum AppError {
     Json(serde_json::Error),
     /// Violation de una regla de negocio (mensaje descriptivo)
     Negocio(String),
+    /// Error al aplicar una migración del esquema
+    Migracion(String),
     /// Error genérico de Tauri
     Tauri(String),
 }
@@ -34,6 +36,7 @@ impl fmt::Display for AppError {
             Self::Keyring(e) => write!(f, "Error de credenciales: {e}"),
             Self::Json(e) => write!(f, "Error de serialización: {e}"),
             Self::Negocio(msg) => write!(f, "Regla de negocio: {msg}"),
+            Self::Migracion(msg) => write!(f, "Error de migración: {msg}"),
             Self::Tauri(msg) => write!(f, "Error de Tauri: {msg}"),
         }
     }

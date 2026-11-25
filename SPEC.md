@@ -244,67 +244,6 @@ El sistema se construye como una **aplicación de escritorio nativa para Windows
 | Testing (Rust) | `cargo test` + `rusqlite::Connection::open_in_memory` | — |
 | Testing (Svelte) | `vitest` + `@testing-library/svelte` | 5.x |
 
----
-
-## Análisis de alternativas descartadas
-
-### ¿Por qué no Electron?
-
-Electron embebe una instancia completa de Chromium en cada aplicación. En idle consume entre 150 y 300 MB de RAM. En un equipo con 4 GB donde Windows 11 ya ocupa ~2 GB, esto deja un margen de operación menor a 700 MB, lo que produce cuellos de botella severos en operación simultánea con antivirus y otros procesos del sistema.
-
-Tauri resuelve esto usando el **motor WebView nativo del SO** (en Windows 11, WebView2 basado en Edge/Blink, que ya está instalado y compartido en memoria con el sistema). El resultado es una aplicación que consume entre 50 y 100 MB de RAM en total.
-
-### ¿Por qué no Python/Flask o Django?
-
-- El intérprete de Python más sus dependencias típicas agregan 100–200 MB de RAM.
-- Distribuir una aplicación de escritorio Python en Windows sin instalar Python en la máquina del cliente requiere PyInstaller u alternativas, que generan ejecutables lentos de iniciar (3–8 segundos de boot).
-- El ecosistema de UI de escritorio de Python (Tkinter, PyQt) es inferior a Svelte para crear interfaces modernas y mantenibles.
-
-### ¿Por qué no Node.js?
-
-Un proceso Node en idle consume entre 40 y 80 MB. Combinado con Electron sería el peor escenario. Combinado con otras soluciones como NW.js el problema es el mismo.
-
-### ¿Por qué no .NET/WinForms o WPF?
-
-Técnicamente viable, pero con desventajas importantes para este proyecto: la curva de desarrollo es mayor, el ecosistema de componentes de UI modernos es inferior, y el binario resultante tiene dependencias del runtime .NET que pueden no estar instaladas en la máquina del cliente.
-
----
-
-## Justificación de cada componente
-
-### Tauri v2
-
-- Usa el WebView nativo del SO, sin empaquetar Chromium.
-- El binario resultante pesa entre 3 y 10 MB en disco.
-- Permite comunicación segura entre frontend (JS/Svelte) y backend (Rust) a través de IPC tipo `invoke("comando", args)`.
-- Produce un instalador `.exe` estándar para Windows.
-- Footprint en RAM: **50–100 MB total** incluyendo frontend y backend.
-
-### Rust (backend de Tauri)
-
-- Sin garbage collector, por lo tanto sin pausas de GC. En hardware lento, las pausas de GC en lenguajes como Go, Java o .NET se perciben como congelamientos de UI.
-- Las operaciones críticas (buscar producto, registrar venta, actualizar stock) se ejecutan en hilos nativos sin overhead de runtime.
-- El manejo explícito de errores con `Result<T, E>` elimina crashes inesperados por excepciones no manejadas.
-- Footprint del proceso Rust en RAM: **20–40 MB**.
-
-### Svelte v5 (frontend)
-
-- A diferencia de React o Vue, Svelte **compila la UI a JavaScript puro en tiempo de build**. No hay Virtual DOM en memoria en tiempo de ejecución.
-- Los bundles resultantes son de 30–80 KB, que el WebView renderiza casi instantáneamente.
-- La reactividad de Svelte es nativa del lenguaje, sin `useState` ni `useEffect` externos.
-- Footprint en RAM (WebView): **20–40 MB**.
-
-### SQLite (base de datos)
-
-- Es una librería enlazada estáticamente al binario de Rust: no hay servidor de base de datos corriendo, no hay proceso adicional en memoria.
-- El archivo `.db` de este sistema no superará 50 MB en años de uso normal.
-- Las queries de este sistema son de complejidad baja (sin joins complejos de más de 3 tablas), y SQLite las ejecuta en microsegundos incluso sobre HDD.
-- Soporta journaling WAL (Write-Ahead Logging) para durabilidad ante cortes de energía.
-- Footprint en RAM: **3–5 MB** (buffer de cache configurable).
-
-> **✅ Precisión monetaria (decisión adoptada):** Todos los montos se modelan desde el día 1 como **centavos** (`INTEGER` / `i64`, ej: $1.99 = 199) para evitar errores de redondeo acumulativos de `f64` (IEEE 754). La conversión a decimales ocurre **exclusivamente** en la capa de presentación (`lib/utils/moneda.ts`). Los umbrales de conciliación se expresan en centavos: ±$1 = ±100, y una diferencia >1 centavo marca "monto difiere".
-
----
 
 ## Uso estimado de RAM en producción
 
@@ -319,133 +258,233 @@ Técnicamente viable, pero con desventajas importantes para este proyecto: la cu
 | **Margen libre sobre 4 GB** | **~1.725 MB** |
 
 ---
+### Schema
 
-## Esquema de base de datos (SQLite)
-
-```sql
--- ⚠️ TODOS los montos están expresados en CENTAVOS (INTEGER), nunca en decimales.
-
--- Productos del inventario
-CREATE TABLE productos (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    nombre      TEXT NOT NULL,
-    barcode     TEXT UNIQUE,
-    precio_venta  INTEGER NOT NULL,  -- centavos
-    precio_costo  INTEGER,           -- centavos
-    stock         INTEGER NOT NULL DEFAULT 0,
-    stock_minimo  INTEGER NOT NULL DEFAULT 5,
-    activo        INTEGER NOT NULL DEFAULT 1,
-    creado_en     TEXT DEFAULT (datetime('now', 'localtime')),
-    actualizado_en TEXT
-);
-
-CREATE INDEX idx_productos_barcode ON productos(barcode);
-CREATE INDEX idx_productos_nombre  ON productos(nombre);
-
--- Categorías de productos
+```c
 CREATE TABLE categorias (
     id      INTEGER PRIMARY KEY AUTOINCREMENT,
     nombre  TEXT NOT NULL UNIQUE,
-    color   TEXT   -- opcional: código hex para identificación visual
-);
+    color   TEXT
+) STRICT;
 
-ALTER TABLE productos ADD COLUMN categoria_id INTEGER REFERENCES categorias(id);
+CREATE TABLE productos (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    nombre         TEXT NOT NULL,
+    barcode        TEXT UNIQUE,                 -- UNIQUE ya crea el índice
+    precio_venta   INTEGER NOT NULL CHECK (precio_venta >= 0),
+    precio_costo   INTEGER CHECK (precio_costo IS NULL OR precio_costo >= 0),
+    stock          INTEGER NOT NULL DEFAULT 0,  -- se permite negativo (recuento atrasado)
+    stock_minimo   INTEGER NOT NULL DEFAULT 5,
+    activo         INTEGER NOT NULL DEFAULT 1 CHECK (activo IN (0,1)),
+    categoria_id   INTEGER REFERENCES categorias(id),
+    creado_en      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    actualizado_en TEXT
+) STRICT;
+CREATE INDEX idx_productos_nombre    ON productos(nombre);
 CREATE INDEX idx_productos_categoria ON productos(categoria_id);
 
--- Ventas (cabecera)
+-- Cierres de caja (antes de ventas, porque ventas.cierre_id lo referencia)
+CREATE TABLE cierres_caja (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    fecha             TEXT NOT NULL UNIQUE,     -- día operativo local (YYYY-MM-DD): un cierre por día
+    efectivo_inicial  INTEGER NOT NULL DEFAULT 0,
+    efectivo_esperado INTEGER NOT NULL DEFAULT 0,
+    efectivo_contado  INTEGER NOT NULL DEFAULT 0,
+    diferencia_arqueo INTEGER NOT NULL DEFAULT 0, -- contado - esperado
+    total_efectivo    INTEGER NOT NULL DEFAULT 0,
+    total_mp          INTEGER NOT NULL DEFAULT 0,
+    cantidad_ventas   INTEGER NOT NULL DEFAULT 0, -- cantidad, no monto
+    monto_ventas      INTEGER NOT NULL DEFAULT 0, -- monto
+    margen_bruto      INTEGER NOT NULL DEFAULT 0,
+    delta_mp          INTEGER NOT NULL DEFAULT 0,
+    creado_en         TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+) STRICT;
+
 CREATE TABLE ventas (
-    id            INTEGER PRIMARY KEY AUTOINCREMENT,
-    total         INTEGER NOT NULL,  -- centavos
-    medio_pago    TEXT NOT NULL CHECK(medio_pago IN ('efectivo', 'mercado_pago', 'mixto')),
-    monto_efectivo   INTEGER DEFAULT 0,  -- centavos
-    monto_mp         INTEGER DEFAULT 0,  -- centavos
-    descripcion_mp   TEXT,
-    hora          TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
-    cerrada       INTEGER NOT NULL DEFAULT 0
-);
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    total          INTEGER NOT NULL CHECK (total >= 0),
+    medio_pago     TEXT NOT NULL CHECK (medio_pago IN ('efectivo','mercado_pago','mixto')),
+    monto_efectivo INTEGER NOT NULL DEFAULT 0 CHECK (monto_efectivo >= 0),
+    monto_mp       INTEGER NOT NULL DEFAULT 0 CHECK (monto_mp >= 0),
+    descripcion_mp TEXT,
+    hora           TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    cierre_id      INTEGER REFERENCES cierres_caja(id),  -- NULL = venta abierta
+    CHECK (total = monto_efectivo + monto_mp)
+) STRICT;
+CREATE INDEX idx_ventas_hora   ON ventas(hora);
+CREATE INDEX idx_ventas_cierre ON ventas(cierre_id);
 
--- Ítems de cada venta
 CREATE TABLE venta_items (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    venta_id    INTEGER NOT NULL REFERENCES ventas(id),
-    producto_id INTEGER NOT NULL REFERENCES productos(id),
-    cantidad    INTEGER NOT NULL,
-    precio_unitario INTEGER NOT NULL  -- centavos
-);
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    venta_id        INTEGER NOT NULL REFERENCES ventas(id),
+    producto_id     INTEGER REFERENCES productos(id),    -- NULL = "cobro libre" sin producto
+    descripcion     TEXT,                                 -- obligatoria si producto_id es NULL
+    cantidad        INTEGER NOT NULL CHECK (cantidad > 0),
+    precio_unitario INTEGER NOT NULL CHECK (precio_unitario >= 0),
+    costo_unitario  INTEGER CHECK (costo_unitario IS NULL OR costo_unitario >= 0), -- costo al momento de la venta
+    CHECK (producto_id IS NOT NULL OR descripcion IS NOT NULL)
+) STRICT;
+CREATE INDEX idx_venta_items_venta    ON venta_items(venta_id);
+CREATE INDEX idx_venta_items_producto ON venta_items(producto_id);
 
--- Devoluciones / Notas de crédito
 CREATE TABLE devoluciones (
-    id       INTEGER PRIMARY KEY AUTOINCREMENT,
-    venta_id INTEGER NOT NULL REFERENCES ventas(id),
-    fecha    TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
-    motivo   TEXT,
-    creado_en TEXT DEFAULT (datetime('now', 'localtime'))
-);
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    venta_id        INTEGER NOT NULL REFERENCES ventas(id),
+    medio_reintegro TEXT NOT NULL CHECK (medio_reintegro IN ('efectivo','mercado_pago','nota_credito')),
+    motivo          TEXT,
+    creado_en       TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+) STRICT;
+CREATE INDEX idx_devoluciones_venta ON devoluciones(venta_id);
 
 CREATE TABLE devolucion_items (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     devolucion_id   INTEGER NOT NULL REFERENCES devoluciones(id),
-    producto_id     INTEGER NOT NULL REFERENCES productos(id),
-    cantidad        INTEGER NOT NULL,
-    monto_devuelto  INTEGER NOT NULL  -- centavos
-);
+    venta_item_id   INTEGER NOT NULL REFERENCES venta_items(id), -- validar cantidad <= vendida - ya devuelta (en el use case)
+    cantidad        INTEGER NOT NULL CHECK (cantidad > 0),
+    monto_devuelto  INTEGER NOT NULL CHECK (monto_devuelto >= 0),
+    reingresa_stock INTEGER NOT NULL DEFAULT 1 CHECK (reingresa_stock IN (0,1)) -- 0 = merma
+) STRICT;
+CREATE INDEX idx_devolucion_items_dev  ON devolucion_items(devolucion_id);
+CREATE INDEX idx_devolucion_items_item ON devolucion_items(venta_item_id);
 
--- Pagos importados desde la API de Mercado Pago
 CREATE TABLE mp_pagos (
     id               INTEGER PRIMARY KEY AUTOINCREMENT,
-    mp_id            TEXT UNIQUE NOT NULL,
-    fecha_aprobacion TEXT,
-    monto            INTEGER NOT NULL,  -- centavos
+    mp_id            TEXT NOT NULL UNIQUE,             -- idempotencia de importación
+    estado           TEXT NOT NULL CHECK (estado IN ('approved','refunded','charged_back','cancelled','other')),
+    fecha_aprobacion TEXT,                             -- UTC
+    monto_bruto      INTEGER NOT NULL,
+    monto_neto       INTEGER,                          -- lo que realmente acredita MP (sin comisión)
     descripcion      TEXT,
     venta_id         INTEGER REFERENCES ventas(id),
-    importado_en     TEXT DEFAULT (datetime('now', 'localtime'))
-);
-
+    conciliado       INTEGER NOT NULL DEFAULT 0 CHECK (conciliado IN (0,1)),
+    importado_en     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+) STRICT;
 CREATE INDEX idx_mp_pagos_fecha ON mp_pagos(fecha_aprobacion);
-CREATE INDEX idx_mp_pagos_monto ON mp_pagos(monto);
+CREATE INDEX idx_mp_pagos_monto ON mp_pagos(monto_bruto);
+CREATE INDEX idx_mp_pagos_venta ON mp_pagos(venta_id);
 
--- Configuración del sistema
 CREATE TABLE configuracion (
     clave TEXT PRIMARY KEY,
     valor TEXT
-);
+) STRICT;
 
--- Cierres de caja
-CREATE TABLE cierres_caja (
-    id               INTEGER PRIMARY KEY AUTOINCREMENT,
-    fecha            TEXT NOT NULL,
-    total_efectivo   INTEGER DEFAULT 0,  -- centavos
-    total_mp         INTEGER DEFAULT 0,  -- centavos
-    total_ventas     INTEGER DEFAULT 0,
-    margen_bruto     INTEGER DEFAULT 0,  -- centavos
-    delta_mp         INTEGER DEFAULT 0,  -- centavos
-    creado_en        TEXT DEFAULT (datetime('now', 'localtime'))
-);
-
--- Movimientos de stock (ajustes manuales, roturas, vencimientos)
+-- Libro de movimientos: productos.stock debe ser igual a SUM(delta) por producto
 CREATE TABLE movimientos_stock (
-    id           INTEGER PRIMARY KEY AUTOINCREMENT,
-    producto_id  INTEGER NOT NULL REFERENCES productos(id),
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    producto_id    INTEGER NOT NULL REFERENCES productos(id),
+    tipo           TEXT NOT NULL CHECK (tipo IN
+                     ('venta','devolucion','reposicion','recuento_fisico','rotura','vencimiento','error_carga','otro')),
+    delta          INTEGER NOT NULL CHECK (delta <> 0),
     stock_anterior INTEGER NOT NULL,
-    stock_nuevo  INTEGER NOT NULL,
-    motivo       TEXT NOT NULL CHECK(motivo IN ('recuento_fisico', 'rotura', 'vencimiento', 'error_carga', 'otro')),
-    operador     TEXT,
-    creado_en    TEXT DEFAULT (datetime('now', 'localtime'))
-);
+    stock_nuevo    INTEGER NOT NULL,
+    venta_id       INTEGER REFERENCES ventas(id),
+    devolucion_id  INTEGER REFERENCES devoluciones(id),
+    operador       TEXT,
+    creado_en      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    CHECK (stock_nuevo = stock_anterior + delta)
+) STRICT;
+CREATE INDEX idx_mov_stock_producto ON movimientos_stock(producto_id, creado_en);
 ```
+### Migraciones
+```
+
+// src-tauri/src/infrastructure/db/migrations.rs
+use rusqlite::Connection;
+use std::path::Path;
+
+#[derive(Debug, thiserror::Error)]
+pub enum MigrationError {
+    #[error("error de base de datos: {0}")]
+    Db(#[from] rusqlite::Error),
+    #[error("migración {version} falló: {source}")]
+    Failed { version: i32, source: rusqlite::Error },
+    #[error("no se pudo crear el backup previo: {0}")]
+    Backup(rusqlite::Error),
+}
+
+// Cada migración vive en su propio archivo .sql, versionado en git.
+// La 1 es el esquema completo (001_schema.sql); las siguientes son incrementales.
+const MIGRATIONS: &[(i32, &str)] = &[
+    (1, include_str!("migrations/001_schema.sql")),
+    // (2, include_str!("migrations/002_xxx.sql")),
+];
+
+/// Debe llamarse con una conexión que ya tenga `PRAGMA foreign_keys=ON`.
+pub fn ejecutar_migraciones(conn: &mut Connection, db_path: &Path) -> Result<(), MigrationError> {
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS schema_version (
+            version     INTEGER PRIMARY KEY,
+            aplicado_en TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+        ) STRICT;",
+    )?;
+
+    // Sin unwrap_or: si falla la lectura, el error sube.
+    let version_actual: i32 =
+        conn.query_row("SELECT COALESCE(MAX(version), 0) FROM schema_version", [], |r| r.get(0))?;
+
+    let pendientes: Vec<_> = MIGRATIONS.iter().filter(|(v, _)| *v > version_actual).collect();
+    if pendientes.is_empty() {
+        return Ok(());
+    }
+
+    // Backup consistente antes de tocar nada (solo si ya había datos).
+    if version_actual > 0 {
+        let backup = db_path.with_extension(format!("pre-v{}.bak", version_actual));
+        let _ = std::fs::remove_file(&backup);
+        conn.execute("VACUUM INTO ?1", [backup.to_string_lossy().as_ref()])
+            .map_err(MigrationError::Backup)?;
+    }
+
+    for (version, sql) in pendientes {
+        // Una transacción por migración: DDL + registro de versión son atómicos.
+        let tx = conn.transaction()?;
+        tx.execute_batch(sql)
+            .map_err(|source| MigrationError::Failed { version: *version, source })?;
+        tx.execute("INSERT INTO schema_version (version) VALUES (?1)", [*version])?;
+        tx.commit()?;
+    }
+    Ok(())
+}
+
+/// Aplicar al abrir CADA conexión.
+pub fn configurar_conexion(conn: &Connection) -> Result<(), rusqlite::Error> {
+    conn.execute_batch("PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL;")
+}
+
+/// Backup diario compacto y consistente, sin bloquear la app.
+/// Reemplaza al VACUUM + auto_vacuum del cierre de caja.
+pub fn backup_diario(conn: &Connection, destino: &Path) -> Result<(), rusqlite::Error> {
+    let _ = std::fs::remove_file(destino); // VACUUM INTO falla si el archivo existe
+    conn.execute("VACUUM INTO ?1", [destino.to_string_lossy().as_ref()])?;
+    Ok(())
+}
+
+// En el caso de uso `close_cash`, llamar a backup_diario a través de un port
+// (p. ej. trait BackupPort) en lugar de un #[tauri::command] que toque la Connection.
+```
+
+### Mantenimiento de base de datos (VACUUM)
+
+Para evitar la fragmentación del archivo `.db` con el tiempo, se ejecuta `VACUUM` periódicamente:
+
+```rust
+// Se ejecuta después de cada cierre de caja
+#[tauri::command]
+fn mantener_bd(db: State<DbConn>) -> Result<(), String> {
+    let conn = db.lock().map_err(|e| e.to_string())?;
+    conn.execute_batch("PRAGMA auto_vacuum=INCREMENTAL; VACUUM;")
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+```
+
+El auto-vacuum en modo INCREMENTAL mantiene el tamaño del archivo acotado sin bloquear la BD durante operación normal.
+
+---
 
 
 ## Arquitectura de carpetas del proyecto
 
-Estructura del repo (aprobada): los documentos técnicos viven en la **raíz** del repositorio y todo el proyecto (frontend + backend) en la subcarpeta `KiosquitodoApp/`. Dentro de ella, el backend está en `src-tauri/` (layout estándar de Tauri, cero fricción con el CLI) y el frontend SvelteKit en su raíz. El backend sigue **arquitectura hexagonal / clean architecture**, adaptando las convenciones Spring Boot a nombres idiomáticos de Rust:
-
-| Capa Spring Boot | Equivalente Rust | Responsabilidad |
-|---|---|---|
-| `controllers` | `infrastructure/api/` (comandos Tauri) | Capa de entrada IPC, delgada: valida y delega |
-| `services` | `application/` (casos de uso) | Orquesta reglas de negocio vía puertos (traits) |
-| `repositories` | `ports/` (traits) + `infrastructure/db/` | Contratos + adaptadores SQLite |
-| `entities/models` | `domain/` | Entidades y lógica de negocio pura (sin I/O, sin SQL) |
-| `config` / `errors` | `config/`, `errors/` | Configuración de rutas/defaults y errores tipados |
 
 ```
 <repo>/                                # Raíz del repositorio
@@ -479,6 +518,79 @@ Estructura del repo (aprobada): los documentos técnicos viven en la **raíz** d
     │           ├── mercadopago/       # Cliente HTTP real de MP (reqwest)
     │           └── system/            # logging, backup, keyring, autostart
 ```
+
+### Estructura de carpetas (backend Rust)
+
+Los comandos de Tauri (`#[tauri::command]`) hacen de "controladores": son la capa de entrada y deben ser finos.
+
+```
+src-tauri/
+├── Cargo.toml
+├── tauri.conf.json
+├── migrations/                  # migraciones SQL versionadas
+│   ├── 0001_init.sql
+│   └── ...
+└── src/
+    ├── main.rs                  # entrada mínima
+    ├── lib.rs                   # arranque y composición de dependencias
+    ├── error.rs                 # error serializable hacia el frontend
+    │
+    ├── commands/                # capa de entrada (Tauri)
+    │   ├── mod.rs
+    │   ├── sales.rs
+    │   ├── products.rs
+    │   ├── payments.rs
+    │   └── cash.rs
+    │
+    ├── application/             # casos de uso
+    │   ├── mod.rs
+    │   ├── register_sale.rs
+    │   ├── sync_payments.rs
+    │   ├── reconcile.rs
+    │   └── close_cash.rs
+    │
+    ├── ports/                   # traits (contratos)
+    │   ├── mod.rs
+    │   ├── product_repo.rs
+    │   ├── sale_repo.rs
+    │   ├── payment_gateway.rs
+    │   ├── secret_store.rs
+    │   └── clock.rs
+    │
+    ├── domain/                  # entidades y reglas puras
+    │   ├── mod.rs
+    │   ├── money.rs             # Money(i64) en centavos
+    │   ├── product.rs
+    │   ├── sale.rs
+    │   ├── payment.rs
+    │   └── cash_closing.rs
+    │
+    └── infrastructure/          # implementaciones concretas
+        ├── mod.rs
+        ├── sqlite/
+        │   ├── mod.rs
+        │   ├── connection.rs
+        │   ├── product_repo.rs
+        │   └── sale_repo.rs
+        ├── mercadopago/
+        │   ├── mod.rs
+        │   ├── client.rs        # reqwest
+        │   └── dto.rs
+        └── keyring.rs
+```
+
+### Regla de dependencias
+
+```
+commands ──► application ──► ports ◄── infrastructure
+                  │             ▲
+                  └──► domain ◄─┘
+```
+
+- `domain` no depende de nada.
+- `ports` y `application` dependen solo de `domain`.
+- `infrastructure` implementa los `ports` (conoce rusqlite, reqwest, keyring).
+- `commands` conoce `application`; el ensamblado concreto ocurre en `lib.rs`.
 
 > ⚠️ Nota de mantenimiento: un `cargo clean` (o borrar `src-tauri/target/`) es **obligatorio** tras mover la carpeta del proyecto de ubicación, porque Cargo incrusta rutas absolutas en su caché de build y puede fallar apuntando a la ruta anterior.
 
@@ -668,72 +780,9 @@ fn init_logging() {
 
 ---
 
-## Migraciones de esquema versionadas
-
-En lugar de una sola función `crear_tablas()`, se implementa un sistema de migraciones con versión. La tabla `schema_version` registra qué migraciones se han aplicado.
-
-```sql
-CREATE TABLE IF NOT EXISTS schema_version (
-    version   INTEGER PRIMARY KEY,
-    aplicado_en TEXT DEFAULT (datetime('now', 'localtime'))
-);
-```
-
-```rust
-// src-tauri/src/infrastructure/db/migrations.rs
-const MIGRATIONS: &[(i32, &str)] = &[
-    (1, "CREATE TABLE IF NOT EXISTS productos (...)"),
-    (2, "CREATE TABLE IF NOT EXISTS ventas (...)"),
-    (3, "CREATE TABLE IF NOT EXISTS venta_items (...)"),
-    (4, "CREATE TABLE IF NOT EXISTS mp_pagos (...)"),
-    (5, "CREATE TABLE IF NOT EXISTS configuracion (...)"),
-    (6, "CREATE TABLE IF NOT EXISTS cierres_caja (...)"),
-    (7, "CREATE TABLE IF NOT EXISTS categorias (...)"),
-    (8, "ALTER TABLE productos ADD COLUMN categoria_id INTEGER"),
-    (9, "CREATE TABLE IF NOT EXISTS devoluciones (...)"),
-    (10, "CREATE TABLE IF NOT EXISTS devolucion_items (...)"),
-];
-
-pub fn ejecutar_migraciones(conn: &Connection) -> Result<(), String> {
-    conn.execute_batch(
-        "CREATE TABLE IF NOT EXISTS schema_version (version INTEGER PRIMARY KEY);"
-    ).map_err(|e| e.to_string())?;
-
-    let version_actual: i32 = conn
-        .query_row("SELECT COALESCE(MAX(version), 0) FROM schema_version", [], |r| r.get(0))
-        .unwrap_or(0);
-
-    for (version, sql) in MIGRATIONS {
-        if *version > version_actual {
-            conn.execute_batch(sql).map_err(|e| format!("Migración {} falló: {}", version, e))?;
-            conn.execute("INSERT INTO schema_version (version) VALUES (?1)", [*version])
-                .map_err(|e| e.to_string())?;
-        }
-    }
-    Ok(())
-}
-```
 
 ---
 
-## Mantenimiento de base de datos (VACUUM)
-
-Para evitar la fragmentación del archivo `.db` con el tiempo, se ejecuta `VACUUM` periódicamente:
-
-```rust
-// Se ejecuta después de cada cierre de caja
-#[tauri::command]
-fn mantener_bd(db: State<DbConn>) -> Result<(), String> {
-    let conn = db.lock().map_err(|e| e.to_string())?;
-    conn.execute_batch("PRAGMA auto_vacuum=INCREMENTAL; VACUUM;")
-        .map_err(|e| e.to_string())?;
-    Ok(())
-}
-```
-
-El auto-vacuum en modo INCREMENTAL mantiene el tamaño del archivo acotado sin bloquear la BD durante operación normal.
-
----
 
 ## Auto-update (actualización automática)
 

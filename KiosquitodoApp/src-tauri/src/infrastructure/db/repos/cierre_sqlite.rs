@@ -37,7 +37,7 @@ impl CierreRepo for CierreSqlite {
     fn resumen_dia(&self, fecha: &str) -> AppResult<ResumenCierre> {
         let conn = self.db.conn.lock().expect("mutex de BD envenenado");
 
-        // Totales de ventas del día
+        // Totales de ventas del día (agrupado por día operativo local)
         let (total_efectivo, total_mp, total_ventas, cantidad_ventas): (i64, i64, i64, i64) =
             conn.query_row(
                 "SELECT \
@@ -46,7 +46,7 @@ impl CierreRepo for CierreSqlite {
                    COALESCE(SUM(total), 0), \
                    COUNT(*) \
                  FROM ventas \
-                 WHERE date(hora) = ?1",
+                 WHERE date(hora, 'localtime') = ?1",
                 params![fecha],
                 |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
             )?;
@@ -60,7 +60,7 @@ impl CierreRepo for CierreSqlite {
                  FROM venta_items vi \
                  JOIN ventas v ON vi.venta_id = v.id \
                  JOIN productos p ON vi.producto_id = p.id \
-                 WHERE date(v.hora) = ?1",
+                 WHERE date(v.hora, 'localtime') = ?1",
                 params![fecha],
                 |row| row.get(0),
             )
@@ -70,11 +70,11 @@ impl CierreRepo for CierreSqlite {
         let delta_mp: i64 = conn
             .query_row(
                 "SELECT ( \
-                    SELECT COALESCE(SUM(monto), 0) FROM mp_pagos \
-                    WHERE date(fecha_aprobacion) = ?1 \
+                    SELECT COALESCE(SUM(monto_bruto), 0) FROM mp_pagos \
+                    WHERE date(fecha_aprobacion, 'localtime') = ?1 \
                  ) - ( \
                     SELECT COALESCE(SUM(monto_mp), 0) FROM ventas \
-                    WHERE date(hora) = ?1 AND medio_pago IN ('mercado_pago', 'mixto') \
+                    WHERE date(hora, 'localtime') = ?1 AND medio_pago IN ('mercado_pago', 'mixto') \
                  )",
                 params![fecha],
                 |row| row.get(0),
@@ -95,7 +95,7 @@ impl CierreRepo for CierreSqlite {
         let conn = self.db.conn.lock().expect("mutex de BD envenenado");
         conn.execute(
             "INSERT INTO cierres_caja \
-             (fecha, total_efectivo, total_mp, total_ventas, cantidad_ventas, margen_bruto, delta_mp) \
+             (fecha, total_efectivo, total_mp, monto_ventas, cantidad_ventas, margen_bruto, delta_mp) \
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
             params![
                 fecha,
@@ -113,7 +113,7 @@ impl CierreRepo for CierreSqlite {
     fn obtener_cierres(&self) -> AppResult<Vec<CierrePersistido>> {
         let conn = self.db.conn.lock().expect("mutex de BD envenenado");
         let mut stmt = conn.prepare(
-            "SELECT id, fecha, total_efectivo, total_mp, total_ventas, \
+            "SELECT id, fecha, total_efectivo, total_mp, monto_ventas, \
                     cantidad_ventas, margen_bruto, delta_mp \
              FROM cierres_caja ORDER BY fecha DESC",
         )?;
@@ -259,7 +259,7 @@ mod tests {
                 id: 0,
                 mp_id: "delta_test".to_string(),
                 fecha_aprobacion: Some(
-                    chrono::Local::now().format("%Y-%m-%dT%H:%M:%S").to_string(),
+                    chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string(),
                 ),
                 monto: 1500,
                 descripcion: None,

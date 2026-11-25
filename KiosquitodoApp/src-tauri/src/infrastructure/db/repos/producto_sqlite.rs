@@ -23,6 +23,22 @@ fn fila_a_producto(row: &Row) -> rusqlite::Result<Producto> {
 
 const COLUMNAS_PRODUCTO: &str = "id, nombre, barcode, precio_venta, precio_costo, stock, stock_minimo, activo, categoria_id";
 
+/// Normaliza el motivo (texto libre) que envía la UI a uno de los valores
+/// permitidos por el `CHECK` de `movimientos_stock.tipo`. Si no coincide con
+/// ninguna categoría conocida, se registra como `'otro'`.
+fn normalizar_tipo_movimiento(motivo: &str) -> &'static str {
+    match motivo.trim().to_lowercase().as_str() {
+        "venta" => "venta",
+        "devolucion" | "devolución" => "devolucion",
+        "reposicion" | "reposición" => "reposicion",
+        "recuento" | "recuento fisico" | "recuento físico" | "recuento_fisico" => "recuento_fisico",
+        "rotura" => "rotura",
+        "vencimiento" => "vencimiento",
+        "error de carga" | "error carga" | "error_carga" => "error_carga",
+        _ => "otro",
+    }
+}
+
 /// Adaptador SQLite que implementa `ProductoRepo`.
 pub struct ProductoSqlite {
     db: DbConn,
@@ -141,7 +157,8 @@ impl ProductoRepo for ProductoSqlite {
         conn.execute(
             "UPDATE productos SET \
                 nombre = ?1, barcode = ?2, precio_venta = ?3, precio_costo = ?4, \
-                stock_minimo = ?5, categoria_id = ?6, actualizado_en = datetime('now', 'localtime') \
+                stock_minimo = ?5, categoria_id = ?6, \
+                actualizado_en = strftime('%Y-%m-%dT%H:%M:%fZ','now') \
              WHERE id = ?7",
             params![
                 producto.nombre.trim(),
@@ -159,7 +176,8 @@ impl ProductoRepo for ProductoSqlite {
     fn eliminar_producto(&self, id: i64) -> AppResult<()> {
         let conn = self.db.conn.lock().expect("mutex de BD envenenado");
         conn.execute(
-            "UPDATE productos SET activo = 0, actualizado_en = datetime('now', 'localtime') \
+            "UPDATE productos SET activo = 0, \
+                actualizado_en = strftime('%Y-%m-%dT%H:%M:%fZ','now') \
              WHERE id = ?1",
             params![id],
         )?;
@@ -187,15 +205,24 @@ impl ProductoRepo for ProductoSqlite {
             .ok_or_else(|| AppError::from(format!("Producto {id} no existe")))?;
 
         tx.execute(
-            "UPDATE productos SET stock = ?1 WHERE id = ?2",
+            "UPDATE productos SET stock = ?1, \
+                actualizado_en = strftime('%Y-%m-%dT%H:%M:%fZ','now') \
+             WHERE id = ?2",
             params![stock_nuevo, id],
         )?;
 
-        tx.execute(
-            "INSERT INTO movimientos_stock (producto_id, stock_anterior, stock_nuevo, motivo, operador) \
-             VALUES (?1, ?2, ?3, ?4, ?5)",
-            params![id, stock_anterior, stock_nuevo, motivo, operador],
-        )?;
+        // El libro de movimientos exige delta <> 0; un ajuste que no cambia el
+        // stock no genera movimiento.
+        let delta = stock_nuevo - stock_anterior;
+        if delta != 0 {
+            let tipo = normalizar_tipo_movimiento(motivo);
+            tx.execute(
+                "INSERT INTO movimientos_stock \
+                 (producto_id, tipo, delta, stock_anterior, stock_nuevo, operador) \
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                params![id, tipo, delta, stock_anterior, stock_nuevo, operador],
+            )?;
+        }
 
         tx.commit()?;
         Ok(())
@@ -388,6 +415,36 @@ mod tests {
             .unwrap();
         assert_eq!(anterior, 10);
         assert_eq!(nuevo_s, 6);
+    }
+
+    #[test]
+    fn ajustar_stock_normaliza_motivo_al_tipo_permitido() {
+        // El texto libre de la UI ("error de carga") debe guardarse como el
+        // valor de enum válido ("error_carga"); un texto desconocido cae en "otro".
+        let r = repo();
+        let a = r.crear_producto(&nuevo("A", "7790001234567", 100)).unwrap();
+        r.ajustar_stock(a.id, 8, "error de carga", None).unwrap();
+
+        let b = r.crear_producto(&nuevo("B", "7790001234568", 100)).unwrap();
+        r.ajustar_stock(b.id, 8, "algo raro", None).unwrap();
+
+        let conn = r.db.conn.lock().unwrap();
+        let tipo_a: String = conn
+            .query_row(
+                "SELECT tipo FROM movimientos_stock WHERE producto_id = ?1",
+                params![a.id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        let tipo_b: String = conn
+            .query_row(
+                "SELECT tipo FROM movimientos_stock WHERE producto_id = ?1",
+                params![b.id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(tipo_a, "error_carga");
+        assert_eq!(tipo_b, "otro");
     }
 
     #[test]

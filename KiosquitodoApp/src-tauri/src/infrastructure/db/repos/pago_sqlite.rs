@@ -31,11 +31,17 @@ impl PagoSqlite {
 
 impl PagoRepo for PagoSqlite {
     /// R5: `INSERT OR IGNORE` sobre `mp_id` único — idempotente.
+    ///
+    /// Solo se persisten pagos elegibles (`approved` + `accredited`, ver
+    /// [`crate::domain::pago::es_elegible`]), por lo que el `estado` se guarda
+    /// como `approved`. Las transiciones a `refunded`/`charged_back` las hará
+    /// el sync cuando se implemente.
     fn upsert_pago(&self, pago: &PagoMp) -> AppResult<bool> {
         let conn = self.db.conn.lock().expect("mutex de BD envenenado");
         let affected = conn.execute(
-            "INSERT OR IGNORE INTO mp_pagos (mp_id, fecha_aprobacion, monto, descripcion) \
-             VALUES (?1, ?2, ?3, ?4)",
+            "INSERT OR IGNORE INTO mp_pagos \
+             (mp_id, estado, fecha_aprobacion, monto_bruto, descripcion) \
+             VALUES (?1, 'approved', ?2, ?3, ?4)",
             params![pago.mp_id, pago.fecha_aprobacion, pago.monto, pago.descripcion],
         )?;
         Ok(affected > 0)
@@ -43,10 +49,13 @@ impl PagoRepo for PagoSqlite {
 
     fn pagos_en_rango(&self, desde: &str, hasta: &str) -> AppResult<Vec<PagoMp>> {
         let conn = self.db.conn.lock().expect("lock");
+        // `fecha_aprobacion` se guarda en UTC; el rango llega como día/hora
+        // local (naive). Se compara en local para respetar el día operativo.
         let mut stmt = conn.prepare(
-            "SELECT id, mp_id, fecha_aprobacion, monto, descripcion, venta_id \
+            "SELECT id, mp_id, fecha_aprobacion, monto_bruto, descripcion, venta_id \
              FROM mp_pagos \
-             WHERE fecha_aprobacion >= ?1 AND fecha_aprobacion <= ?2 \
+             WHERE datetime(fecha_aprobacion, 'localtime') >= datetime(?1) \
+               AND datetime(fecha_aprobacion, 'localtime') <= datetime(?2) \
              ORDER BY fecha_aprobacion DESC",
         )?;
         let pagos = stmt
@@ -59,7 +68,7 @@ impl PagoRepo for PagoSqlite {
         let conn = self.db.conn.lock().expect("lock");
         let pago = conn
             .query_row(
-                "SELECT id, mp_id, fecha_aprobacion, monto, descripcion, venta_id \
+                "SELECT id, mp_id, fecha_aprobacion, monto_bruto, descripcion, venta_id \
                  FROM mp_pagos WHERE mp_id = ?1",
                 params![mp_id],
                 fila_a_pago,
@@ -92,7 +101,7 @@ impl PagoRepo for PagoSqlite {
         let conn = self.db.conn.lock().expect("lock");
         let huerfanos = {
             let mut stmt = conn.prepare(
-                "SELECT id, monto, fecha_aprobacion FROM mp_pagos \
+                "SELECT id, monto_bruto, fecha_aprobacion FROM mp_pagos \
                  WHERE venta_id IS NULL ORDER BY fecha_aprobacion ASC, id ASC",
             )?;
             let filas = stmt
@@ -345,20 +354,18 @@ mod tests {
     #[test]
     fn matching_normaliza_offset_de_la_api() {
         use crate::domain::pago::{desde_api, MpPagoApi};
-        use chrono::{Local, NaiveDateTime, TimeZone};
+        use chrono::DateTime;
 
         let (pagos, ventas, productos) = setup_completo();
         let pid = crear_producto_para_venta(&productos, "5555555555555");
         let venta = crear_venta_mp(&ventas, pid, 1500);
 
-        // Mismo instante que `venta.hora` (naive local, `datetime()` usa espacio)
-        // pero expresado por la API en RFC3339 con el offset local del equipo
-        // (ej. −03:00). Sin la normalización de `desde_api`, `strftime('%s', ...)`
-        // los compara desplazados por el offset y el matching fallaría.
-        let naive = NaiveDateTime::parse_from_str(&venta.hora, "%Y-%m-%d %H:%M:%S")
-            .or_else(|_| NaiveDateTime::parse_from_str(&venta.hora, "%Y-%m-%dT%H:%M:%S"))
-            .unwrap();
-        let rfc3339 = Local.from_local_datetime(&naive).unwrap().to_rfc3339();
+        // `venta.hora` se guarda en UTC (`...Z`). Construimos un pago aprobado
+        // en el MISMO instante pero expresado por la API en RFC3339 con el
+        // offset local del equipo (ej. −03:00). `desde_api` lo normaliza a UTC,
+        // así `strftime('%s', ...)` compara instantes iguales.
+        let instante = DateTime::parse_from_rfc3339(&venta.hora).unwrap();
+        let rfc3339 = instante.with_timezone(&chrono::Local).to_rfc3339();
         let pago = desde_api(MpPagoApi {
             id: 777,
             date_approved: Some(rfc3339),

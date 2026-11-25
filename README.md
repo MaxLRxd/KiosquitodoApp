@@ -68,6 +68,74 @@ Tauri v2
 └── Frontend (KiosquitodoApp/): Svelte 5 + SvelteKit 2 + Tailwind CSS 3.4 + Vite 8
 ```
 
+## Arquitectura
+
+```
+<repo>/                                # Raíz del repositorio
+├── README.md                          # Documentación técnica (índice y visión general)
+├──  KiosquitodoApp/                    # Proyecto completo (frontend + backend)
+│   ├── src/                           # Frontend SvelteKit
+│   │   ├── routes/                    #   +layout (sidebar + barra estado + atajos F1–F6) y páginas de módulos
+│   │   ├── lib/                       #   components/, stores/, api/, utils/, types/
+│   │   ├── app.html · app.css · app.d.ts
+│   ├── static/                        # Assets estáticos (favicon.png, sounds/*.wav)
+│   ├── package.json · svelte.config.js · vite.config.ts (puerto 1420, strictPort)
+│   ├── tailwind.config.js · postcss.config.js
+│   src-tauri/
+├── Cargo.toml
+├── tauri.conf.json
+├── migrations/                  # migraciones SQL versionadas
+│   ├── 0001_init.sql
+│   └── ...
+└── src/
+    ├── main.rs                  # entrada mínima
+    ├── lib.rs                   # arranque y composición de dependencias
+    ├── error.rs                 # error serializable hacia el frontend
+    │
+    ├── commands/                # capa de entrada (Tauri)
+    │   ├── mod.rs
+    │   ├── sales.rs
+    │   ├── products.rs
+    │   ├── payments.rs
+    │   └── cash.rs
+    │
+    ├── application/             # casos de uso
+    │   ├── mod.rs
+    │   ├── register_sale.rs
+    │   ├── sync_payments.rs
+    │   ├── reconcile.rs
+    │   └── close_cash.rs
+    │
+    ├── ports/                   # traits (contratos)
+    │   ├── mod.rs
+    │   ├── product_repo.rs
+    │   ├── sale_repo.rs
+    │   ├── payment_gateway.rs
+    │   ├── secret_store.rs
+    │   └── clock.rs
+    │
+    ├── domain/                  # entidades y reglas puras
+    │   ├── mod.rs
+    │   ├── money.rs             # Money(i64) en centavos
+    │   ├── product.rs
+    │   ├── sale.rs
+    │   ├── payment.rs
+    │   └── cash_closing.rs
+    │
+    └── infrastructure/          # implementaciones concretas
+        ├── mod.rs
+        ├── sqlite/
+        │   ├── mod.rs
+        │   ├── connection.rs
+        │   ├── product_repo.rs
+        │   └── sale_repo.rs
+        ├── mercadopago/
+        │   ├── mod.rs
+        │   ├── client.rs        # reqwest
+        │   └── dto.rs
+        └── keyring.rs
+```
+
 ---
 
 ## Hardware compatible (escáneres)
